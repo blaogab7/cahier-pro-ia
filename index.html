@@ -689,3 +689,9 @@ function remplacerBouton(id){
 remplacerBouton("deco");
 remplacerBouton("deco2");
 </script>
+<script>
+// Activation du fonctionnement hors connexion et de l'installation
+if("serviceWorker" in navigator){
+  addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
+}
+</script>
