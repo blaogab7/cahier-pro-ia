@@ -820,3 +820,30 @@ ecrire=async function(store,o){
   return ecrireSansStock(store,o);
 };
 </script>
+<script>
+// ---------- Paiement : menu Mobile Money ouvert sur le téléphone du client ----------
+// Les codes marchands seront ajoutés ici quand vous les aurez obtenus auprès de l'opérateur.
+// Tant qu'ils sont vides, le client paie par transfert vers votre numéro.
+const CODE_MARCHAND={MTN:"",Orange:""};
+
+// Menus Mobile Money (le client tape son PIN sur son propre téléphone, jamais dans l'application)
+const MENU_USSD={MTN:"*126%23",Orange:"%23150%23"};
+
+function afficherInstructions(op){
+  operateurChoisi=op;
+  const p=PAIEMENT[op];
+  document.querySelectorAll("[data-op]").forEach(b=>b.style.borderColor=b.dataset.op===op?"var(--orange)":"var(--gris)");
+  const i=$("ab-instr");
+  i.style.display="block";
+  const menu=`tel:${MENU_USSD[op]}`;
+  i.innerHTML=`<b>Payer ${PRIX} FCFA par ${esc(p.nom)}</b><br>
+    1. Appuyez sur le bouton ci-dessous : le menu ${esc(p.nom)} s'ouvre sur votre téléphone.<br>
+    2. Choisissez <b>Transfert</b> (ou Paiement), puis entrez le numéro <b>${esc(p.affiche)}</b>.<br>
+    3. Entrez le montant <b>${PRIX}</b>, puis votre code secret sur votre téléphone.<br>
+    4. Gardez le SMS de confirmation et revenez ici.<br>
+    5. Écrivez le numéro ou la référence de la transaction, puis appuyez sur « J'ai payé ».<br>
+    <a class="mini" href="${menu}" style="text-decoration:none;display:inline-block">Ouvrir le menu ${esc(p.nom)}</a>
+    <button class="mini gr" data-copie="${p.numero}" type="button">Copier le numéro</button>
+    <div class="sub">Au nom de : ${esc(p.titulaire)}</div>`;
+}
+</script>
