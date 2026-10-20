@@ -754,3 +754,48 @@ addEventListener("load",creerBoutonInstaller);
 // Enregistrement du fonctionnement hors connexion
 if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
 </script>
+<script>
+// ---------- Ventes : quantité, prix par article et montant automatique ----------
+(function(){
+  const lab=document.querySelector('label[for="v-montant"]');
+  const montant=$("v-montant");
+  if(!lab||!montant)return;
+
+  if(!$("v-qte")){
+    const d=document.createElement("div");
+    d.innerHTML='<label for="v-qte">Quantité vendue</label><input id="v-qte" type="number" inputmode="numeric" min="1" value="1">';
+    lab.parentNode.insertBefore(d,lab);
+  }
+  if(!$("v-prix")){
+    const d=document.createElement("div");
+    d.innerHTML='<label for="v-prix">Prix par article (FCFA)</label><input id="v-prix" type="number" inputmode="numeric" min="0">';
+    lab.parentNode.insertBefore(d,lab);
+  }
+
+  lab.textContent="Montant total (FCFA)";
+  montant.readOnly=true;
+  montant.style.background="#f4f7f5";
+
+  // Le montant total = quantité × prix par article
+  const calculer=()=>{
+    const total=(entier($("v-qte").value)||0)*(entier($("v-prix").value)||0);
+    montant.value=total>0?total:"";
+  };
+  $("v-qte").addEventListener("input",calculer);
+  $("v-prix").addEventListener("input",calculer);
+
+  // Si le produit existe dans le stock, son prix est proposé automatiquement
+  $("v-produit").addEventListener("change",async()=>{
+    if(!baseLocale)return;
+    const nom=$("v-produit").value.trim().toLowerCase();
+    const p=(await tout("produits")).find(x=>x.nom.trim().toLowerCase()===nom);
+    if(p){$("v-prix").value=p.prix_vente;calculer();}
+  });
+})();
+
+// ---------- Stock : prix par article ----------
+(function(){
+  const lab=document.querySelector('label[for="s-prix"]');
+  if(lab)lab.textContent="Prix par article (FCFA)";
+})();
+</script>
