@@ -695,3 +695,62 @@ if("serviceWorker" in navigator){
   addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
 }
 </script>
+<script>
+// ---------- Bouton « Installer l'application » ----------
+let invitationInstall=null;
+
+// Vrai si l'application est déjà installée et ouverte comme une application
+function estInstallee(){
+  return matchMedia("(display-mode: standalone)").matches || navigator.standalone===true;
+}
+
+// Ajoute le bouton sur la page d'accueil (seulement sur le site, jamais dans l'application installée)
+function creerBoutonInstaller(){
+  if(document.getElementById("btn-installer")||estInstallee())return;
+  const zone=document.querySelector("#accueil > div:last-child");
+  if(!zone)return;
+  const b=document.createElement("button");
+  b.id="btn-installer";
+  b.className="btn blanc";
+  b.style.border="2px solid var(--vert)";
+  b.textContent="📲 Installer Cahier Pro";
+  b.addEventListener("click",installer);
+  zone.prepend(b);
+}
+
+function masquerBoutonInstaller(){
+  const b=document.getElementById("btn-installer");
+  if(b)b.remove();
+}
+
+async function installer(){
+  if(invitationInstall){
+    invitationInstall.prompt();
+    const choix=await invitationInstall.userChoice;
+    invitationInstall=null;
+    if(choix.outcome==="accepted")masquerBoutonInstaller();
+    return;
+  }
+  // Si le navigateur ne propose pas l'installation automatique
+  alert("Pour installer : ouvrez le menu du navigateur (les trois points ⋮ ou …), puis choisissez « Installer Cahier Pro » ou « Ajouter à l'écran d'accueil ».");
+}
+
+// Le navigateur signale qu'on peut installer le site
+addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();
+  invitationInstall=e;
+  creerBoutonInstaller();
+});
+
+// Dès que l'installation est terminée, le bouton disparaît
+addEventListener("appinstalled",()=>{
+  invitationInstall=null;
+  masquerBoutonInstaller();
+});
+
+// Sur le site, le bouton apparaît même si le navigateur ne signale rien
+addEventListener("load",creerBoutonInstaller);
+
+// Enregistrement du fonctionnement hors connexion
+if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
+</script>
