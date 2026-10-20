@@ -634,3 +634,58 @@ async function rendre(id){
   }
 }
 </script>
+<script>
+// ---------- Déconnexion protégée par mot de passe ----------
+function deconnecter(){
+  localStorage.removeItem("cp_session");
+  aller("accueil");
+}
+
+function demanderMotDePasse(){
+  const fond=document.createElement("div");
+  fond.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20";
+  fond.innerHTML=`<div style="background:#fff;border-radius:16px;padding:22px;max-width:420px;width:100%">
+    <h2 style="margin:0 0 8px;color:#0f4d2e">Se déconnecter ?</h2>
+    <p style="margin:0 0 6px;color:#55625b">Pour votre sécurité, entrez votre mot de passe pour confirmer.</p>
+    <input id="cp-mdp-confirm" type="password" placeholder="Mot de passe" style="width:100%;padding:15px;border:2px solid #e6ebe8;border-radius:12px;font-size:18px;font-family:inherit">
+    <div id="cp-err" style="display:none;background:#fdecea;color:#c0392b;padding:10px;border-radius:10px;margin-top:10px"></div>
+    <button id="cp-ok" class="btn vert" type="button">Confirmer la déconnexion</button>
+    <button id="cp-non" class="btn blanc" type="button" style="border:2px solid #e6ebe8">Annuler</button>
+  </div>`;
+  document.body.appendChild(fond);
+
+  const champ=fond.querySelector("#cp-mdp-confirm");
+  const err=fond.querySelector("#cp-err");
+  const fermer=()=>fond.remove();
+  const afficherErreur=msg=>{err.textContent=msg;err.style.display="block"};
+  champ.focus();
+
+  fond.querySelector("#cp-non").addEventListener("click",fermer);
+  fond.querySelector("#cp-ok").addEventListener("click",async()=>{
+    err.style.display="none";
+    const mdp=champ.value;
+    if(!mdp)return afficherErreur("Entrez votre mot de passe.");
+    if(!navigator.onLine)return afficherErreur("Il faut Internet pour vérifier votre mot de passe.");
+    try{
+      // On vérifie le mot de passe auprès du serveur, sans changer la session
+      await sb("/auth/v1/token?grant_type=password",{methode:"POST",corps:{email:lireSession().user.email,password:mdp}});
+      fermer();
+      deconnecter();
+    }catch(e){
+      afficherErreur("Mot de passe incorrect.");
+    }
+  });
+}
+
+// Remplace les anciens boutons (ils perdent alors leur ancienne action directe)
+function remplacerBouton(id){
+  const ancien=document.getElementById(id);
+  if(!ancien)return;
+  const neuf=ancien.cloneNode(true);
+  neuf.textContent="Se déconnecter";
+  ancien.replaceWith(neuf);
+  neuf.addEventListener("click",demanderMotDePasse);
+}
+remplacerBouton("deco");
+remplacerBouton("deco2");
+</script>
