@@ -557,3 +557,80 @@ if(lireSession())ouvrirTableau();
 </script>
 </body>
 </html>
+<script>
+// ---------- Suppression ----------
+async function supprimer(store,id,nom){
+  if(!accesOk())return;
+  if(!confirm("Supprimer « "+nom+" » ? Cette action est définitive."))return;
+  if(!navigator.onLine)return toast("Il faut Internet pour supprimer.");
+  try{
+    const jt=await jeton();
+    await sb("/rest/v1/"+store+"?id=eq."+id,{methode:"DELETE",jeton:jt,entetes:{Prefer:"return=minimal"}});
+    await new Promise((ok,ko)=>{
+      const t=baseLocale.transaction([store,"file_attente"],"readwrite");
+      t.objectStore(store).delete(id);
+      t.objectStore("file_attente").delete(store+":"+id);
+      t.oncomplete=ok;t.onerror=()=>ko(t.error);});
+    toast("Supprimé ✔");
+    rendre(document.querySelector("main.actif").id);
+  }catch(err){toast("Suppression impossible. Réessayez.")}
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-del]");
+  if(b)supprimer(b.dataset.store,b.dataset.del,b.dataset.nom);
+});
+
+// ---------- Affichage des écrans (version complète) ----------
+async function rendre(id){
+  if(!baseLocale)return;
+  if(id==="tableau")return calculerTableau();
+  const D=debuts();
+  const bouton=(store,rec,nom)=>`<button class="mini gr" data-del="${rec.id}" data-store="${store}" data-nom="${esc(nom)}">Supprimer</button>`;
+
+  if(id==="ventes"){
+    const [v,p,c]=await Promise.all([tout("ventes"),tout("produits"),tout("clients")]);
+    $("v-j").textContent=fcfa(somme(v,D.j));$("v-s").textContent=fcfa(somme(v,D.s));$("v-m").textContent=fcfa(somme(v,D.m));
+    $("dl-produits").innerHTML=p.map(x=>`<option value="${esc(x.nom)}">`).join("");
+    $("dl-clients").innerHTML=c.map(x=>`<option value="${esc(x.nom)}">`).join("");
+    const j=parDate(v.filter(x=>new Date(x.cree_le)>=D.j));
+    $("l-ventes").innerHTML=j.length?j.map(x=>`<div class="it"><b>${esc(x.produit)}</b> · ${fcfa(x.montant)}<div class="sub">${MODES[x.mode_paiement]} · ${quand(x.cree_le)}</div>${bouton("ventes",x,x.produit)}</div>`).join(""):'<div class="vide">Aucune vente aujourd\'hui.</div>';
+  }
+
+  if(id==="depenses"){
+    const d=await tout("depenses");
+    $("d-j").textContent=fcfa(somme(d,D.j));$("d-s").textContent=fcfa(somme(d,D.s));$("d-m").textContent=fcfa(somme(d,D.m));
+    const j=parDate(d.filter(x=>new Date(x.cree_le)>=D.j));
+    $("l-depenses").innerHTML=j.length?j.map(x=>`<div class="it"><b>${esc(x.motif)}</b> · ${fcfa(x.montant)}<div class="sub">${quand(x.cree_le)}</div>${bouton("depenses",x,x.motif)}</div>`).join(""):'<div class="vide">Aucune dépense aujourd\'hui.</div>';
+  }
+
+  if(id==="credits"){
+    const c=await tout("credits");
+    $("c-total").textContent=fcfa(c.filter(x=>x.statut==="en_attente").reduce((t,x)=>t+x.montant,0));
+    const l=c.slice().sort((a,b)=>(a.statut==="paye")-(b.statut==="paye")||new Date(b.date_credit)-new Date(a.date_credit));
+    $("l-credits").innerHTML=l.length?l.map(x=>`<div class="it"><b>${esc(x.nom_client)}</b> · ${fcfa(x.montant)}
+      <div class="sub">${x.statut==="paye"?"✔ Payé":"En attente"} · crédit du ${quand(x.date_credit)}</div>
+      ${x.statut==="paye"?"":`<button class="mini or" data-act="wa" data-id="${x.id}">Rappeler sur WhatsApp</button><button class="mini" data-act="paye" data-id="${x.id}">Marquer comme payé</button>`}
+      ${bouton("credits",x,x.nom_client)}</div>`).join(""):'<div class="vide">Aucun crédit enregistré.</div>';
+  }
+
+  if(id==="stock"){
+    const p=(await tout("produits")).sort((a,b)=>a.nom.localeCompare(b.nom));
+    $("l-stock").innerHTML=p.length?p.map(x=>`<div class="it"><b>${esc(x.nom)}</b> · ${fcfa(x.prix_vente)}
+      <div class="sub">En stock : ${x.quantite}</div>
+      ${x.quantite<=x.seuil_alerte?`<div class="rouge">Attention : il ne reste que ${x.quantite} unité${x.quantite>1?"s":""}.</div>`:""}
+      <button class="mini gr" data-act="moins" data-id="${x.id}">− 1</button><button class="mini" data-act="plus" data-id="${x.id}">+ 1</button>
+      ${bouton("produits",x,x.nom)}</div>`).join(""):'<div class="vide">Aucun produit. Ajoutez le premier ci-dessus.</div>';
+  }
+
+  if(id==="activite"){
+    const [v,d,c]=await Promise.all([tout("ventes"),tout("depenses"),tout("credits")]);
+    const vide='<div class="vide">Rien pour le moment.</div>';
+    const liste=(l,f)=>l.length?parDate(l).slice(0,5).map(f).join(""):vide;
+    $("a-ventes").innerHTML=liste(v,x=>`<div class="it"><b>${esc(x.produit)}</b> · ${fcfa(x.montant)}<div class="sub">${quand(x.cree_le)}</div></div>`);
+    $("a-depenses").innerHTML=liste(d,x=>`<div class="it"><b>${esc(x.motif)}</b> · ${fcfa(x.montant)}<div class="sub">${quand(x.cree_le)}</div></div>`);
+    $("a-credits").innerHTML=liste(c.map(x=>({...x,cree_le:x.date_credit})),x=>`<div class="it"><b>${esc(x.nom_client)}</b> · ${fcfa(x.montant)}<div class="sub">${quand(x.cree_le)}</div></div>`);
+    const s=localStorage.getItem("cp_derniere_synchro");
+    $("a-sync").textContent=s?"Dernière synchronisation : "+quand(s):"Pas encore synchronisé.";
+  }
+}
+</script>
