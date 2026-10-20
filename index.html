@@ -799,3 +799,24 @@ if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWor
   if(lab)lab.textContent="Prix par article (FCFA)";
 })();
 </script>
+<script>
+// ---------- Vente : diminuer le stock, bloquer si stock insuffisant ----------
+const ecrireSansStock=ecrire;
+ecrire=async function(store,o){
+  if(store==="ventes"){
+    const qte=Math.max(1,entier($("v-qte").value)||1);
+    const nom=(o.produit||"").trim().toLowerCase();
+    const p=(await tout("produits")).find(x=>x.nom.trim().toLowerCase()===nom);
+    if(p){
+      if(p.quantite<qte){
+        toast("Stock insuffisant : il reste "+p.quantite+" unité(s) de "+p.nom+".");
+        throw new Error("stock insuffisant");
+      }
+      p.quantite-=qte;
+      p.maj_le=maintenant();
+      await ecrireSansStock("produits",p);
+    }
+  }
+  return ecrireSansStock(store,o);
+};
+</script>
