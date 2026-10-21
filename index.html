@@ -966,3 +966,35 @@ async function recevoirDonnees(){
   }catch(e){console.warn("Réception reportée :",e.message)}
 }
 </script>
+<script>
+// ---------- Suppressions synchronisées entre appareils ----------
+
+// 1) Les colonnes « supprime » sont envoyées et reçues avec les autres données
+COLS.clients.push("supprime");
+COLS.produits.push("supprime");
+COLS.ventes.push("supprime");
+COLS.depenses.push("supprime");
+COLS.credits.push("supprime");
+
+// 2) Lecture : on ne montre jamais les données supprimées
+tout=function(n){return new Promise((ok,ko)=>{
+  const q=baseLocale.transaction(n).objectStore(n).getAll();
+  q.onsuccess=()=>ok(q.result.filter(x=>!x.supprime));
+  q.onerror=()=>ko(q.error);
+})};
+
+// 3) Suppression : on marque la ligne comme supprimée, sans l'effacer
+//    (ainsi les autres appareils apprennent la suppression)
+supprimer=async function(store,id,nom){
+  if(!accesOk())return;
+  if(!confirm("Supprimer « "+nom+" » ? Cette action est définitive."))return;
+  const o=(await tout(store)).find(x=>x.id===id);
+  if(!o)return toast("Élément introuvable.");
+  o.supprime=true;
+  o.maj_le=maintenant();
+  await ecrireBase(store,o);
+  toast("Supprimé ✔");
+  const actif=document.querySelector("main.actif");
+  if(actif)rendre(actif.id);
+};
+</script>
