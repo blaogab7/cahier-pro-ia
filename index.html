@@ -998,3 +998,20 @@ supprimer=async function(store,id,nom){
   if(actif)rendre(actif.id);
 };
 </script>
+<script>
+// ---------- Pas de produits en double dans le stock ----------
+const ecrireAvantDoublons=ecrire;
+ecrire=async function(store,o){
+  if(store==="produits"){
+    const nomNormal=(o.nom||"").trim().toLowerCase();
+    const existants=await tout("produits");
+    // Un autre produit (id différent) porte déjà le même nom
+    const doublon=existants.find(x=>x.id!==o.id && x.nom.trim().toLowerCase()===nomNormal);
+    if(doublon){
+      toast("« "+doublon.nom+" » existe déjà dans le stock. Modifiez sa quantité avec + ou −.");
+      throw new Error("produit en double");
+    }
+  }
+  return ecrireAvantDoublons(store,o);
+};
+</script>
