@@ -912,3 +912,17 @@ addEventListener("appinstalled",()=>{
 // Le bouton reste visible sur le site, jamais dans l'application installée
 addEventListener("load",afficherBoutonInstaller);
 </script>
+<script>
+// ---------- Compte administrateur : pas de message d'abonnement ----------
+const chargerAccesAvant=chargerAcces;
+chargerAcces=async function(){
+  const resultat=await chargerAccesAvant();
+  const id=uid();
+  if(localStorage.getItem("cp_admin_"+id)){
+    $("rappel").style.display="none";
+    $("rappel").onclick=null;
+    $("t-jours").textContent="Illimité";
+  }
+  return resultat;
+};
+</script>
