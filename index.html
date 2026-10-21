@@ -926,3 +926,43 @@ chargerAcces=async function(){
   return resultat;
 };
 </script>
+<script>
+// ---------- Réception des données depuis les autres appareils ----------
+const synchroAvantReception=synchroniser;
+synchroniser=async function(){
+  await synchroAvantReception();   // 1) envoyer ce qui est en attente
+  await recevoirDonnees();         // 2) recevoir ce qui vient des autres appareils
+};
+
+async function recevoirDonnees(){
+  if(!baseLocale||!navigator.onLine||!lireSession())return;
+  const id=uid(),cle="cp_pull_"+id;
+  try{
+    const jt=await jeton();
+    // On repart de la dernière réception, avec une marge de 10 minutes
+    const depuis=new Date(Number(localStorage.getItem(cle)||0)-600000).toISOString();
+    // Les données encore en attente d'envoi sur ce téléphone ne sont jamais écrasées
+    const attente=new Set((await tout("file_attente")).map(f=>f.id));
+    const debut=Date.now();
+
+    for(const store of ORDRE){
+      const lignes=await sb("/rest/v1/"+store+"?select=*&maj_le=gt."+encodeURIComponent(depuis)+"&order=maj_le.asc&limit=1000",{jeton:jt});
+      if(!lignes.length)continue;
+      const locaux=new Map((await tout(store)).map(o=>[o.id,o]));
+      await new Promise((ok,ko)=>{
+        const t=baseLocale.transaction(store,"readwrite"),s=t.objectStore(store);
+        lignes.forEach(l=>{
+          if(attente.has(store+":"+l.id))return;
+          const c=locaux.get(l.id);
+          if(!c||new Date(l.maj_le)>new Date(c.maj_le))s.put(l);
+        });
+        t.oncomplete=ok;t.onerror=()=>ko(t.error);
+      });
+    }
+
+    localStorage.setItem(cle,String(debut));
+    const actif=document.querySelector("main.actif");
+    if(actif)rendre(actif.id);
+  }catch(e){console.warn("Réception reportée :",e.message)}
+}
+</script>
