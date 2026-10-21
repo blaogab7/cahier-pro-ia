@@ -859,3 +859,56 @@ function accesOk(){
   return true;
 }
 </script>
+<script>
+// ---------- Bouton « Installer » direct, sans passer par le menu du navigateur ----------
+let invitationInstall=null;
+
+function estInstallee(){
+  return matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+}
+
+function afficherBoutonInstaller(){
+  if(estInstallee()||document.getElementById("btn-installer"))return;
+  const zone=document.querySelector("#accueil > div:last-child");
+  if(!zone)return;
+  const b=document.createElement("button");
+  b.id="btn-installer";
+  b.className="btn blanc";
+  b.style.border="2px solid var(--vert)";
+  b.textContent="📲 Installer Cahier Pro";
+  b.addEventListener("click",installer);
+  zone.prepend(b);
+}
+
+function retirerBoutonInstaller(){
+  const b=document.getElementById("btn-installer");
+  if(b)b.remove();
+}
+
+async function installer(){
+  if(!invitationInstall){
+    toast("Pas encore disponible. Restez 30 secondes sur ce site dans Chrome, puis réessayez.");
+    return;
+  }
+  invitationInstall.prompt();
+  const choix=await invitationInstall.userChoice;
+  if(choix.outcome==="accepted")retirerBoutonInstaller();
+  invitationInstall=null;
+}
+
+// Chrome signale que l'installation est possible
+addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();
+  invitationInstall=e;
+  afficherBoutonInstaller();
+});
+
+// Dès que l'application est installée, le bouton disparaît
+addEventListener("appinstalled",()=>{
+  invitationInstall=null;
+  retirerBoutonInstaller();
+});
+
+// Le bouton reste visible sur le site, jamais dans l'application installée
+addEventListener("load",afficherBoutonInstaller);
+</script>
