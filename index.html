@@ -1229,3 +1229,18 @@ lienOublie.addEventListener("click",async()=>{
   });
 })();
 </script>
+<script>
+// Bouton de téléchargement de l'application Android
+(function(){
+  const zone=document.querySelector("#accueil > div:last-child");
+  if(!zone||document.getElementById("btn-apk"))return;
+  const a=document.createElement("a");
+  a.id="btn-apk";
+  a.href="cahier-pro.apk";
+  a.download="cahier-pro.apk";
+  a.className="btn blanc";
+  a.style.cssText="border:2px solid var(--vert);text-decoration:none;text-align:center;display:block";
+  a.textContent="📱 Télécharger l'application Android";
+  zone.appendChild(a);
+})();
+</script>
