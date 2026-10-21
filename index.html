@@ -1244,3 +1244,23 @@ lienOublie.addEventListener("click",async()=>{
   zone.appendChild(a);
 })();
 </script>
+<script>
+// Bouton APK : seulement sur le site, jamais dans l'application
+(function(){
+  const dansAppli=document.referrer.startsWith("android-app://")||matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  if(dansAppli){
+    ["btn-apk","btn-installer"].forEach(id=>{const b=document.getElementById(id);if(b)b.remove()});
+  }
+  // Le bouton « Installer Cahier Pro » est retiré partout
+  const retirer=()=>{const b=document.getElementById("btn-installer");if(b)b.remove()};
+  retirer();
+  new MutationObserver(retirer).observe(document.body,{childList:true,subtree:true});
+  // Le texte « Connecté » ne s'affiche plus ; il reste visible seulement en cas de problème
+  const el=document.getElementById("statut");
+  if(el){
+    const voir=()=>{el.style.display=/Hors connexion|attente|Synchronisation/.test(el.textContent)?"block":"none"};
+    new MutationObserver(voir).observe(el,{childList:true,characterData:true,subtree:true});
+    voir();
+  }
+})();
+</script>
