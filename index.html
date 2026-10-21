@@ -847,3 +847,15 @@ function afficherInstructions(op){
     <div class="sub">Au nom de : ${esc(p.titulaire)}</div>`;
 }
 </script>
+<script>
+// ---------- Accès : l'administrateur n'est jamais bloqué ----------
+function accesOk(){
+  const id=uid();
+  // Administrateur : accès illimité
+  if(localStorage.getItem("cp_admin_"+id))return true;
+  if(localStorage.getItem("cp_bloque_"+id)){toast("Compte suspendu. Contactez Cahier Pro.");return false}
+  const f=localStorage.getItem("cp_fin_"+id);
+  if(f&&new Date(f)<=Date.now()){toast("Accès terminé : abonnez-vous pour continuer.");aller("abonnement");return false}
+  return true;
+}
+</script>
