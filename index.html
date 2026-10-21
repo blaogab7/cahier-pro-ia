@@ -1015,3 +1015,35 @@ ecrire=async function(store,o){
   return ecrireAvantDoublons(store,o);
 };
 </script>
+<script>
+// ---------- Suppression d'une vente : le stock est rendu ----------
+
+// La quantité vendue est enregistrée avec la vente, et envoyée à la base
+COLS.ventes.push("quantite");
+
+// Au moment de l'enregistrement, on garde la quantité dans la vente
+const ecrireAvantRetourStock=ecrire;
+ecrire=async function(store,o){
+  if(store==="ventes"&&$("v-qte")){
+    o.quantite=Math.max(1,entier($("v-qte").value)||1);
+  }
+  return ecrireAvantRetourStock(store,o);
+};
+
+// Quand une vente est supprimée, son stock revient
+const supprimerAvantRetourStock=supprimer;
+supprimer=async function(store,id,nom){
+  if(store==="ventes"){
+    const vente=(await tout("ventes")).find(x=>x.id===id);
+    const produit=vente&&(await tout("produits")).find(x=>x.nom.trim().toLowerCase()===(vente.produit||"").trim().toLowerCase());
+    if(produit&&vente.quantite){
+      if(!accesOk())return;
+      if(!confirm("Supprimer cette vente ? Le stock de « "+produit.nom+" » sera rendu ("+vente.quantite+" unité(s))."))return;
+      produit.quantite+=vente.quantite;
+      produit.maj_le=maintenant();
+      await ecrireBase("produits",produit);
+    }
+  }
+  return supprimerAvantRetourStock(store,id,nom);
+};
+</script>
