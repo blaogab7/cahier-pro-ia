@@ -1101,3 +1101,131 @@ $("f-mdp").addEventListener("submit",async e=>{
   }catch(err){montrerErreur("e-mdp","Un problème est survenu. Réessayez.")}
 });
 </script>
+<script>
+// ---------- Inscription et connexion par e-mail, mot de passe oublié ----------
+
+function remplacerFormulaire(ancien,html,onSubmit){
+  const neuf=document.createElement("form");
+  neuf.id=ancien.id;
+  neuf.noValidate=true;
+  neuf.innerHTML=html;
+  ancien.replaceWith(neuf);
+  neuf.addEventListener("submit",onSubmit);
+  return neuf;
+}
+const emailValide=m=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m);
+
+// Messages d'erreur plus clairs
+function traduire(m){
+  m=(m||"").toLowerCase();
+  if(m.includes("not confirmed"))return "Confirmez d'abord votre e-mail : cliquez sur le lien reçu (pensez aux spams).";
+  if(m.includes("invalid login"))return "E-mail ou mot de passe incorrect.";
+  if(m.includes("already")||m.includes("registered"))return "Cette adresse e-mail a déjà un compte. Connectez-vous.";
+  if(m.includes("duplicate")||m.includes("telephone"))return "Ce numéro de téléphone est déjà utilisé.";
+  if(m.includes("failed to fetch")||m.includes("network"))return "Pas d'Internet. Réessayez quand la connexion revient.";
+  if(m.includes("rate"))return "Trop d'essais. Attendez une minute puis réessayez.";
+  return "Un problème est survenu. Réessayez.";
+}
+
+// ----- Inscription : nom, e-mail, téléphone, mot de passe, boutique -----
+remplacerFormulaire($("f-inscription"),`
+  <label for="nom">Votre nom complet</label><input id="nom" autocomplete="name">
+  <label for="mail">Adresse e-mail</label><input id="mail" type="email" inputmode="email" autocomplete="email">
+  <label for="tel">Numéro de téléphone</label><input id="tel" type="tel" inputmode="tel" value="+237 " autocomplete="tel">
+  <label for="mdp">Mot de passe (8 caractères minimum)</label><input id="mdp" type="password" autocomplete="new-password">
+  <label for="mdp2">Confirmez le mot de passe</label><input id="mdp2" type="password" autocomplete="new-password">
+  <label for="boutique">Nom de votre boutique</label><input id="boutique">
+  <label for="type">Type de commerce</label>
+  <select id="type"><option>Vêtements</option><option>Alimentation</option><option>Cosmétiques</option><option>Téléphone</option><option>Coiffure</option><option>Restaurant</option><option>Autre</option></select>
+  <label for="ville">Ville</label>
+  <select id="ville"><option>Douala</option><option>Yaoundé</option><option>Bafoussam</option><option>Garoua</option><option>Autre</option></select>
+  <div class="erreur" id="e-inscription"></div>
+  <button class="btn vert" type="submit">Créer mon compte</button>`,
+async e=>{
+  e.preventDefault();montrerErreur("e-inscription","");
+  const v=id=>$(id).value.trim();
+  const mail=v("mail").toLowerCase(),tel=normaliserTel(v("tel"));
+  if(v("nom").length<3)return montrerErreur("e-inscription","Entrez votre nom complet.");
+  if(!emailValide(mail))return montrerErreur("e-inscription","Adresse e-mail invalide.");
+  if(!tel)return montrerErreur("e-inscription","Numéro invalide. Exemple : +237 6XX XX XX XX");
+  if($("mdp").value.length<8)return montrerErreur("e-inscription","Le mot de passe doit avoir au moins 8 caractères.");
+  if($("mdp").value!==$("mdp2").value)return montrerErreur("e-inscription","Les deux mots de passe sont différents.");
+  if(v("boutique").length<2)return montrerErreur("e-inscription","Entrez le nom de votre boutique.");
+  if(!navigator.onLine)return montrerErreur("e-inscription","Il faut Internet pour créer un compte.");
+  const bouton=e.target.querySelector("button[type=submit]");bouton.disabled=true;bouton.textContent="Création en cours…";
+  try{
+    const d=await sb("/auth/v1/signup",{methode:"POST",corps:{email:mail,password:$("mdp").value,
+      data:{nom:v("nom"),telephone:tel,boutique:v("boutique"),type:$("type").value,ville:$("ville").value}}});
+    if(d.access_token){garderSession(d);ouvrirTableau();}
+    else{
+      toast("Compte créé. Confirmez votre e-mail, puis connectez-vous.");
+      aller("connexion");
+    }
+  }catch(err){montrerErreur("e-inscription",traduire(err.message))}
+  bouton.disabled=false;bouton.textContent="Créer mon compte";
+});
+
+// ----- Connexion par e-mail -----
+remplacerFormulaire($("f-connexion"),`
+  <label for="c-mail">Adresse e-mail</label><input id="c-mail" type="email" inputmode="email" autocomplete="email">
+  <label for="c-mdp">Mot de passe</label><input id="c-mdp" type="password" autocomplete="current-password">
+  <div class="erreur" id="e-connexion"></div>
+  <button class="btn vert" type="submit">Se connecter</button>`,
+async e=>{
+  e.preventDefault();montrerErreur("e-connexion","");
+  const mail=$("c-mail").value.trim().toLowerCase(),mdp=$("c-mdp").value;
+  if(!emailValide(mail))return montrerErreur("e-connexion","Entrez une adresse e-mail valide.");
+  if(!mdp)return montrerErreur("e-connexion","Entrez votre mot de passe.");
+  if(!navigator.onLine)return montrerErreur("e-connexion","Il faut Internet pour se connecter sur ce téléphone.");
+  const bouton=e.target.querySelector("button[type=submit]");bouton.disabled=true;
+  try{
+    const d=await sb("/auth/v1/token?grant_type=password",{methode:"POST",corps:{email:mail,password:mdp}});
+    garderSession(d);ouvrirTableau();
+  }catch(err){montrerErreur("e-connexion",traduire(err.message))}
+  bouton.disabled=false;
+});
+
+// ----- Mot de passe oublié : envoi du lien par e-mail -----
+const ancienLien=$("oublie");
+const lienOublie=ancienLien.cloneNode(true);
+ancienLien.replaceWith(lienOublie);
+lienOublie.addEventListener("click",async()=>{
+  const mail=$("c-mail").value.trim().toLowerCase();
+  if(!emailValide(mail))return montrerErreur("e-connexion","Entrez votre adresse e-mail dans le champ ci-dessus, puis appuyez de nouveau ici.");
+  if(!navigator.onLine)return montrerErreur("e-connexion","Il faut Internet pour réinitialiser le mot de passe.");
+  try{await sb("/auth/v1/recover",{methode:"POST",corps:{email:mail}})}catch(e){}
+  montrerErreur("e-connexion","Si cette adresse a un compte, un lien vient d'être envoyé. Vérifiez aussi vos spams.");
+});
+
+// ----- Écran « Nouveau mot de passe » ouvert depuis le lien reçu par e-mail -----
+(function(){
+  const h=new URLSearchParams(location.hash.slice(1));
+  if(h.get("type")!=="recovery"||!h.get("access_token"))return;
+  const jeton=h.get("access_token");
+  history.replaceState(null,"",location.pathname);
+  const page=document.createElement("main");
+  page.id="nouveau-mdp";
+  page.innerHTML=`<h2>Nouveau mot de passe</h2>
+    <form id="f-nouveau" novalidate>
+      <label for="n-mdp">Nouveau mot de passe (8 caractères minimum)</label><input id="n-mdp" type="password" autocomplete="new-password">
+      <label for="n-mdp2">Confirmez le mot de passe</label><input id="n-mdp2" type="password" autocomplete="new-password">
+      <div class="erreur" id="e-nouveau"></div>
+      <button class="btn vert" type="submit">Enregistrer</button>
+    </form>`;
+  document.body.appendChild(page);
+  aller("nouveau-mdp");
+  page.querySelector("form").addEventListener("submit",async e=>{
+    e.preventDefault();montrerErreur("e-nouveau","");
+    const p1=$("n-mdp").value,p2=$("n-mdp2").value;
+    if(p1.length<8)return montrerErreur("e-nouveau","Le mot de passe doit avoir au moins 8 caractères.");
+    if(p1!==p2)return montrerErreur("e-nouveau","Les deux mots de passe sont différents.");
+    try{
+      await sb("/auth/v1/user",{methode:"PUT",corps:{password:p1},jeton});
+      localStorage.removeItem("cp_session");
+      page.remove();
+      toast("Mot de passe changé ✔ Connectez-vous.");
+      aller("connexion");
+    }catch(err){montrerErreur("e-nouveau","Le lien a expiré. Demandez-en un nouveau depuis la page de connexion.")}
+  });
+})();
+</script>
