@@ -1047,3 +1047,57 @@ supprimer=async function(store,id,nom){
   return supprimerAvantRetourStock(store,id,nom);
 };
 </script>
+<script>
+// ---------- Mon profil : affichage et modifications ----------
+const rendreAvantProfil=rendre;
+rendre=async function(id){
+  if(id==="profil")return rProfil();
+  return rendreAvantProfil(id);
+};
+
+function rProfil(){
+  const ses=lireSession();if(!ses)return;
+  const m=ses.user.user_metadata||{};
+  $("p-type").innerHTML=$("type").innerHTML;
+  $("p-ville").innerHTML=$("ville").innerHTML;
+  $("p-nom").value=m.nom||"";
+  $("p-boutique").value=m.boutique||"";
+  $("p-type").value=m.type||"Autre";
+  $("p-ville").value=m.ville||"Autre";
+}
+
+// Enregistrer nom, boutique, type et ville
+$("f-profil").addEventListener("submit",async e=>{
+  e.preventDefault();montrerErreur("e-profil","");
+  const nom=$("p-nom").value.trim(),boutique=$("p-boutique").value.trim();
+  const type=$("p-type").value,ville=$("p-ville").value;
+  if(nom.length<3)return montrerErreur("e-profil","Entrez votre nom complet.");
+  if(boutique.length<2)return montrerErreur("e-profil","Entrez le nom de la boutique.");
+  if(!navigator.onLine)return montrerErreur("e-profil","Il faut Internet pour modifier le profil.");
+  try{
+    const jt=await jeton(),id=uid(),h={Prefer:"return=minimal"};
+    await sb("/rest/v1/profils?id=eq."+id,{methode:"PATCH",corps:{nom},jeton:jt,entetes:h});
+    await sb("/rest/v1/boutiques?user_id=eq."+id,{methode:"PATCH",corps:{nom:boutique,type_commerce:type,ville},jeton:jt,entetes:h});
+    await sb("/auth/v1/user",{methode:"PUT",corps:{data:{nom,boutique,type,ville}},jeton:jt});
+    const ses=lireSession();
+    ses.user.user_metadata=Object.assign(ses.user.user_metadata||{},{nom,boutique,type,ville});
+    localStorage.setItem("cp_session",JSON.stringify(ses));
+    $("bienvenue").textContent="Bonjour, "+nom.split(" ")[0]+" !";
+    $("t-boutique").textContent=boutique;
+    toast("Profil enregistré ✔");
+  }catch(err){montrerErreur("e-profil","Un problème est survenu. Réessayez.")}
+});
+
+// Changer le mot de passe
+$("f-mdp").addEventListener("submit",async e=>{
+  e.preventDefault();montrerErreur("e-mdp","");
+  const m1=$("p-mdp").value,m2=$("p-mdp2").value;
+  if(m1.length<8)return montrerErreur("e-mdp","Le mot de passe doit avoir au moins 8 caractères.");
+  if(m1!==m2)return montrerErreur("e-mdp","Les deux mots de passe sont différents.");
+  if(!navigator.onLine)return montrerErreur("e-mdp","Il faut Internet pour changer le mot de passe.");
+  try{
+    await sb("/auth/v1/user",{methode:"PUT",corps:{password:m1},jeton:await jeton()});
+    e.target.reset();toast("Mot de passe changé ✔");
+  }catch(err){montrerErreur("e-mdp","Un problème est survenu. Réessayez.")}
+});
+</script>
