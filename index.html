@@ -2383,3 +2383,64 @@ rendre=async function(id){
   });
 })();
 </script>
+<script>
+// ---------- Catégories de dépenses ----------
+
+COLS.depenses.push("categorie");
+const CATEGORIES_DEPENSE=["Loyer","Transport","Électricité / eau","Salaires","Achats","Communication","Autre"];
+
+// Liste « Catégorie » dans le formulaire de dépense
+(function(){
+  const montant=document.getElementById("d-montant");
+  if(!montant||document.getElementById("d-categorie"))return;
+  const d=document.createElement("div");
+  d.innerHTML='<label for="d-categorie">Catégorie</label><select id="d-categorie">'+CATEGORIES_DEPENSE.map(c=>`<option value="${c}">${c}</option>`).join("")+'</select>';
+  montant.insertAdjacentElement("afterend",d);
+})();
+
+// Mémorise la catégorie choisie au moment de l'envoi
+let categorieSaisie=null;
+document.getElementById("f-depense").addEventListener("submit",()=>{
+  categorieSaisie=document.getElementById("d-categorie")?.value||"Autre";
+},true);
+
+const ecrireAvantCategorie=ecrire;
+ecrire=async function(store,o){
+  if(store==="depenses"){
+    if(categorieSaisie!==null){o.categorie=categorieSaisie;categorieSaisie=null;}
+    if(!o.categorie)o.categorie="Autre";
+  }
+  return ecrireAvantCategorie(store,o);
+};
+
+// La catégorie est aussi modifiable dans « Modifier » (texte libre)
+CHAMPS_EDIT.depenses.push({k:"categorie",l:"Catégorie",t:"texte"});
+
+// Répartition des dépenses du mois dans le Résumé
+async function ajouterCategories(){
+  const zone=document.getElementById("resume-contenu");
+  if(!zone)return;
+  const D=debuts();
+  const depenses=(await tout("depenses")).filter(x=>new Date(x.cree_le)>=D.m&&x.supprime!==true);
+  const parCategorie={};
+  depenses.forEach(x=>{const k=x.categorie||"Autre";parCategorie[k]=(parCategorie[k]||0)+x.montant});
+  const total=Object.values(parCategorie).reduce((a,b)=>a+b,0);
+  const liste=Object.entries(parCategorie).sort((a,b)=>b[1]-a[1]);
+
+  const ancien=document.getElementById("cat-zone");
+  if(ancien)ancien.remove();
+  const z=document.createElement("div");
+  z.id="cat-zone";
+  z.innerHTML=`<h3>Dépenses par catégorie</h3>${liste.length
+    ? liste.map(([k,m])=>`<div class="it"><b>${esc(k)}</b> · ${fcfa(m)} · ${total?Math.round(m*100/total):0} %</div>`).join("")
+    : '<div class="vide">Aucune dépense ce mois-ci.</div>'}`;
+  zone.appendChild(z);
+}
+
+const rendreAvantCategories=rendre;
+rendre=async function(id){
+  const r=await rendreAvantCategories(id);
+  if(id==="resume")await ajouterCategories();
+  return r;
+};
+</script>
