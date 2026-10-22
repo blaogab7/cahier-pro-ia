@@ -1440,3 +1440,31 @@ async function exporter(store){
   z.addEventListener("click",e=>{const b=e.target.closest("[data-export]");if(b)exporter(b.dataset.export)});
 })();
 </script>
+<script>
+// ---------- Barre de recherche dans les listes ----------
+const LISTES_RECH=["l-ventes","l-depenses","l-credits","l-stock"];
+
+function filtrerListe(liste,champ){
+  const q=champ.value.trim().toLowerCase();
+  liste.querySelectorAll(".it").forEach(it=>{
+    it.style.display=!q||it.textContent.toLowerCase().includes(q)?"":"none";
+  });
+}
+
+function ajouterRecherche(){
+  LISTES_RECH.forEach(id=>{
+    const liste=document.getElementById(id);
+    if(!liste||document.getElementById("rech-"+id))return;
+    const champ=document.createElement("input");
+    champ.id="rech-"+id;
+    champ.type="search";
+    champ.placeholder="Rechercher…";
+    champ.style.margin="10px 0";
+    champ.addEventListener("input",()=>filtrerListe(liste,champ));
+    liste.parentNode.insertBefore(champ,liste);
+    // Quand la liste se recharge, le filtre reste appliqué
+    new MutationObserver(()=>filtrerListe(liste,champ)).observe(liste,{childList:true});
+  });
+}
+ajouterRecherche();
+</script>
