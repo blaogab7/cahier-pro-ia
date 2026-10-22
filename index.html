@@ -2772,3 +2772,19 @@ rResume=async function(){
   creerMois();
 })();
 </script>
+<style>
+/* Le bloc « Aujourd'hui » est toujours visible : le bouton d'option est masqué */
+#b-option-jour{display:none!important}
+</style>
+<script>
+// Le bloc « Aujourd'hui » reste affiché en permanence
+(function(){
+  try{localStorage.setItem("cp_masquer_jour","0")}catch(e){}
+  const afficher=()=>{
+    const z=document.getElementById("jour-zone");
+    if(z&&z.style.display==="none")z.style.display="";
+  };
+  afficher();
+  new MutationObserver(afficher).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
