@@ -1578,3 +1578,92 @@ ecrire=async function(store,o){
   return r;
 };
 </script>
+<script>
+// ---------- Historique des mouvements de stock (sur ce téléphone) ----------
+let stockConnu=null,derniereVente=0,derniereSuppression=0;
+
+// Base séparée pour l'historique, par commerçant
+function ouvrirMouvements(){return new Promise((ok,ko)=>{
+  const r=indexedDB.open("cahierpro_mvt_"+uid(),1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("mouvements",{keyPath:"id"});
+  r.onsuccess=()=>ok(r.result);r.onerror=()=>ko(r.error);})}
+
+async function enregistrerMouvement(m){
+  const db=await ouvrirMouvements();
+  const t=db.transaction("mouvements","readwrite");
+  t.objectStore("mouvements").put(m);
+  return new Promise(ok=>{t.oncomplete=ok});
+}
+
+async function lireMouvements(){
+  const db=await ouvrirMouvements();
+  return new Promise(ok=>{
+    const q=db.transaction("mouvements").objectStore("mouvements").getAll();
+    q.onsuccess=()=>ok(q.result);
+  });
+}
+
+// Compare le stock avant et après chaque enregistrement, et note les changements
+async function detecterMouvements(){
+  if(!stockConnu||!baseLocale)return;
+  const produits=await tout("produits");
+  const maintenantMs=Date.now();
+  for(const p of produits){
+    const avant=stockConnu.has(p.id)?stockConnu.get(p.id):null;
+    if(avant===p.quantite)continue;
+    let raison="Ajustement manuel";
+    if(avant===null)raison="Ajout du produit";
+    else if(p.quantite<avant&&maintenantMs-derniereVente<5000)raison="Vente";
+    else if(p.quantite>avant&&maintenantMs-derniereSuppression<5000)raison="Vente supprimée";
+    const av=avant==null?0:avant;
+    await enregistrerMouvement({id:crypto.randomUUID(),produit:p.nom,avant:av,apres:p.quantite,variation:p.quantite-av,raison,date:new Date().toISOString()});
+    stockConnu.set(p.id,p.quantite);
+  }
+}
+
+// Photo du stock au démarrage, dès que la base est prête
+const attendreBase=setInterval(async()=>{
+  if(baseLocale&&lireSession()){
+    clearInterval(attendreBase);
+    stockConnu=new Map((await tout("produits")).map(p=>[p.id,p.quantite]));
+  }
+},300);
+
+// Chaque enregistrement déclenche la détection
+const planifierAvantMvt=planifierSync;
+planifierSync=function(){detecterMouvements();planifierAvantMvt()};
+
+// Marquer le moment d'une vente ou d'une suppression
+const ecrireAvantMvt=ecrire;
+ecrire=async function(store,o){
+  if(store==="ventes")derniereVente=Date.now();
+  return ecrireAvantMvt(store,o);
+};
+const supprimerAvantMvt=supprimer;
+supprimer=async function(store,id,nom){
+  if(store==="ventes")derniereSuppression=Date.now();
+  return supprimerAvantMvt(store,id,nom);
+};
+
+// Bouton et affichage de l'historique, dans l'écran Stock
+async function afficherHistorique(){
+  const liste=(await lireMouvements()).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,100);
+  const lignes=liste.length?liste.map(m=>`<div class="it"><b>${esc(m.produit)}</b> · ${m.variation>0?"+":""}${m.variation}
+    <div class="sub">${esc(m.raison)} · ${m.avant} → ${m.apres} · ${quand(m.date)}</div></div>`).join(""):'<div class="vide">Aucun mouvement pour le moment.</div>';
+  const fond=document.createElement("div");
+  fond.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20";
+  fond.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow:auto">
+    <h2 style="margin:0 0 8px;color:#0f4d2e">Historique du stock</h2>${lignes}
+    <button class="btn vert" type="button" id="hs-fermer">Fermer</button></div>`;
+  document.body.appendChild(fond);
+  fond.querySelector("#hs-fermer").addEventListener("click",()=>fond.remove());
+}
+(function(){
+  const st=document.getElementById("stock");
+  if(!st||document.getElementById("b-historique"))return;
+  const b=document.createElement("button");
+  b.id="b-historique";b.className="mini gr";b.type="button";b.textContent="Historique du stock";
+  b.addEventListener("click",afficherHistorique);
+  st.appendChild(b);
+})();
+</script>
