@@ -2788,3 +2788,28 @@ rResume=async function(){
   new MutationObserver(afficher).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
+<script>
+// Place la case « Bénéfice estimé du jour » juste sous « Aujourd'hui », avant « Ce mois-ci »
+(function(){
+  function placer(){
+    const jour=document.getElementById("jour-zone");
+    if(!jour)return;
+    const carte=document.getElementById("t-benefice")?.closest(".carte");
+    let bz=document.getElementById("benefice-zone");
+    if(!bz&&carte){
+      bz=document.createElement("div");
+      bz.id="benefice-zone";
+      bz.className="grille";
+      bz.style.marginBottom="16px";
+      jour.insertAdjacentElement("afterend",bz);
+      bz.appendChild(carte);
+    }
+    // Le bloc « Ce mois-ci » vient juste après
+    const mois=document.getElementById("mois-zone");
+    const ancre=bz||jour;
+    if(mois&&ancre.nextElementSibling!==mois)ancre.insertAdjacentElement("afterend",mois);
+  }
+  placer();
+  new MutationObserver(placer).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
