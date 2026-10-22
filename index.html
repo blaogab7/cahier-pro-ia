@@ -1380,3 +1380,21 @@ new MutationObserver(ajouterBoutonsModifier).observe(document.body,{childList:tr
 document.addEventListener("click",e=>{const b=e.target.closest("[data-edit]");if(b)ouvrirEdition(b.dataset.edit,b.dataset.id)});
 ajouterBoutonsModifier();
 </script>
+<style>
+.pied{text-align:center;font-size:13px;color:#55625b;margin-top:28px}
+.pied a{color:#0f4d2e}
+#accueil .pied{color:rgba(255,255,255,.85)}
+#accueil .pied a{color:#fff}
+</style>
+<script>
+// Pied de page discret : liens légaux sur tous les écrans
+(function(){
+  document.querySelectorAll("main").forEach(m=>{
+    if(m.querySelector(".pied"))return;
+    const p=document.createElement("p");
+    p.className="pied";
+    p.innerHTML='<a href="confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="conditions.html" target="_blank" rel="noopener">Conditions</a>';
+    m.appendChild(p);
+  });
+})();
+</script>
