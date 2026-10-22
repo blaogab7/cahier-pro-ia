@@ -2533,3 +2533,40 @@ rendre=async function(id){
   });
 })();
 </script>
+<script>
+// ---------- Résumé du mois : ventes et dépenses supprimées exclues ----------
+rResume=async function(){
+  const D=debuts();
+  const [v,d,c]=await Promise.all(["ventes","depenses","credits"].map(tout));
+  const dansMois=x=>new Date(x.cree_le)>=D.m&&x.supprime!==true;
+  const vm=v.filter(dansMois),dm=d.filter(dansMois);
+  const totV=vm.reduce((t,x)=>t+x.montant,0),totD=dm.reduce((t,x)=>t+x.montant,0);
+
+  const enAttente=c.filter(x=>x.statut!=="paye"&&x.supprime!==true);
+  const totC=enAttente.reduce((t,x)=>t+resteDuCredit(x),0);
+
+  const parProduit={};
+  vm.forEach(x=>{const k=(x.produit||"?").trim();parProduit[k]=(parProduit[k]||0)+(x.quantite||1)});
+  const top=Object.entries(parProduit).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const parClient={};
+  enAttente.forEach(x=>{const k=x.nom_client||"?";parClient[k]=(parClient[k]||0)+resteDuCredit(x)});
+  const dettes=Object.entries(parClient).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const mois=new Date().toLocaleDateString("fr-FR",{month:"long",year:"numeric"});
+  const vide='<div class="vide">Rien pour le moment.</div>';
+  $("resume-contenu").innerHTML=`
+    <div class="grille">
+      <div class="carte large"><div class="lib">Bénéfice estimé (${esc(mois)})</div><div class="val">${fcfa(totV-totD)}</div></div>
+      <div class="carte"><div class="lib">Ventes du mois</div><div class="val">${fcfa(totV)}</div></div>
+      <div class="carte"><div class="lib">Dépenses du mois</div><div class="val">${fcfa(totD)}</div></div>
+      <div class="carte"><div class="lib">Crédits à récupérer</div><div class="val">${fcfa(totC)}</div></div>
+      <div class="carte"><div class="lib">Nombre de ventes</div><div class="val">${vm.length}</div></div>
+    </div>
+    <h3>Produits les plus vendus</h3>
+    ${top.length?top.map(([n,q])=>`<div class="it"><b>${esc(n)}</b> · ${q} vendu${q>1?"s":""}</div>`).join(""):vide}
+    <h3>Clients qui doivent le plus</h3>
+    ${dettes.length?dettes.map(([n,m])=>`<div class="it"><b>${esc(n)}</b> · reste ${fcfa(m)}</div>`).join(""):vide}
+    <p class="petit">Bénéfice estimé = ventes du mois − dépenses du mois. Les ventes et dépenses supprimées ne sont pas comptées.</p>`;
+};
+</script>
