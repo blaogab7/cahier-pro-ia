@@ -2017,3 +2017,152 @@ rResume=async function(){
   });
 })();
 </script>
+<script>
+// ---------- Panier : plusieurs articles, un seul paiement, un seul reçu ----------
+(function(){
+  let panier=[];
+  let panierEnCours=false;
+
+  // Pendant la validation du panier, pas de reçu par article
+  const proposerRecuAvantPanier=proposerRecu;
+  proposerRecu=function(o){ if(panierEnCours)return; return proposerRecuAvantPanier(o); };
+
+  // Ajoute la zone « Plusieurs articles ? » au-dessus du formulaire de vente
+  function ajouterZone(){
+    const form=document.getElementById("f-vente");
+    if(!form||document.getElementById("pn-zone"))return;
+    const z=document.createElement("div");
+    z.id="pn-zone";
+    z.className="it";
+    z.innerHTML=`<b>Plusieurs articles ?</b>
+      <div class="sub">Ajoutez chaque article au panier, puis validez : un seul paiement et un seul reçu.</div>
+      <label for="pn-produit">Produit</label><input id="pn-produit" type="text" list="dl-produits">
+      <label for="pn-qte">Quantité</label><input id="pn-qte" type="number" inputmode="numeric" min="1" value="1">
+      <label for="pn-prix">Prix par article (FCFA)</label><input id="pn-prix" type="number" inputmode="numeric" min="0">
+      <button class="mini" type="button" id="pn-ajouter">Ajouter au panier</button>
+      <div id="pn-liste"></div>
+      <button class="btn orange" type="button" id="pn-valider">Valider le panier</button>`;
+    form.parentNode.insertBefore(z,form);
+    afficherPanier();
+  }
+  new MutationObserver(ajouterZone).observe(document.body,{childList:true,subtree:true});
+  ajouterZone();
+
+  function afficherPanier(){
+    const liste=document.getElementById("pn-liste");
+    if(!liste)return;
+    const total=panier.reduce((t,l)=>t+l.qte*l.prix,0);
+    liste.innerHTML=panier.length
+      ? panier.map((l,i)=>`<div class="sub">${esc(l.produit)} : ${l.qte} × ${fcfa(l.prix)} = <b>${fcfa(l.qte*l.prix)}</b> <button class="mini gr" type="button" data-pn-retirer="${i}">Retirer</button></div>`).join("")+`<div><b>Total : ${fcfa(total)}</b></div>`
+      : '<div class="sub">Le panier est vide.</div>';
+  }
+
+  // Prix proposé automatiquement si le produit existe dans le stock
+  document.addEventListener("input",async e=>{
+    if(e.target.id!=="pn-produit")return;
+    const nom=e.target.value.trim().toLowerCase();
+    const p=(await tout("produits")).find(x=>x.nom.trim().toLowerCase()===nom);
+    if(p)document.getElementById("pn-prix").value=p.prix_vente;
+  });
+
+  // Boutons Ajouter, Retirer et Valider
+  document.addEventListener("click",e=>{
+    const retirer=e.target.closest("[data-pn-retirer]");
+    if(retirer){
+      panier.splice(Number(retirer.dataset.pnRetirer),1);
+      return afficherPanier();
+    }
+    if(e.target.closest("#pn-ajouter")){
+      const produit=document.getElementById("pn-produit").value.trim();
+      const qte=entier(document.getElementById("pn-qte").value);
+      const prix=entier(document.getElementById("pn-prix").value);
+      if(!produit)return toast("Entrez le nom du produit.");
+      if(!(qte>0))return toast("Quantité invalide.");
+      if(isNaN(prix)||prix<0)return toast("Prix invalide.");
+      panier.push({produit,qte,prix});
+      document.getElementById("pn-produit").value="";
+      document.getElementById("pn-qte").value="1";
+      document.getElementById("pn-prix").value="";
+      afficherPanier();
+      document.getElementById("pn-produit").focus();
+      return;
+    }
+    if(e.target.closest("#pn-valider"))validerPanier();
+  });
+
+  async function validerPanier(){
+    if(!panier.length)return toast("Le panier est vide.");
+    if(!accesOk())return;
+    const mode=document.getElementById("v-mode").value;
+    const champQte=document.getElementById("v-qte");
+    if(!champQte)return toast("Rechargez la page puis réessayez.");
+
+    let nomClient=null;
+    if(mode==="credit"){
+      nomClient=document.getElementById("v-cnom").value.trim();
+      if(!nomClient)return toast("Entrez le nom du client pour une vente à crédit.");
+    }
+
+    // Contrôle du stock pour tout le panier avant d'écrire quoi que ce soit
+    const stock=await tout("produits");
+    const besoin={};
+    panier.forEach(l=>{const k=l.produit.trim().toLowerCase();besoin[k]=(besoin[k]||0)+l.qte});
+    for(const k of Object.keys(besoin)){
+      const p=stock.find(x=>x.nom.trim().toLowerCase()===k);
+      if(p&&p.quantite<besoin[k])return toast("Stock insuffisant : il reste "+p.quantite+" unité(s) de "+p.nom+".");
+    }
+
+    const lignes=panier.slice();
+    const total=lignes.reduce((t,l)=>t+l.qte*l.prix,0);
+    panierEnCours=true;
+    try{
+      let client=null;
+      if(mode==="credit"){
+        const existant=(await tout("clients")).find(c=>c.nom.toLowerCase()===nomClient.toLowerCase());
+        client=existant||nouveau({nom:nomClient,whatsapp:document.getElementById("v-cwa").value.trim()||null});
+        if(!existant)await ecrire("clients",client);
+      }
+      const note=document.getElementById("v-note").value.trim()||null;
+      // Une vente par article, avec la quantité lue par le contrôle de stock existant
+      for(const l of lignes){
+        champQte.value=String(l.qte);
+        await ecrire("ventes",nouveau({produit:l.produit,montant:l.qte*l.prix,mode_paiement:mode,client_id:client?client.id:null,note}));
+      }
+      if(client)await ecrire("credits",nouveau({client_id:client.id,nom_client:client.nom,whatsapp:client.whatsapp,montant:total,date_credit:maintenant(),date_limite:null,statut:"en_attente",note:lignes.map(l=>l.qte+" × "+l.produit).join(", ")}));
+    }catch(err){
+      return toast("Panier non enregistré : "+(err.message||"erreur"));
+    }finally{
+      panierEnCours=false;
+      champQte.value="1";
+    }
+
+    // Remise à zéro du panier
+    panier=[];
+    afficherPanier();
+    document.getElementById("v-note").value="";
+    if(mode==="credit")document.getElementById("v-cnom").value="";
+    await rendre("ventes");
+    afficherRecuPanier(lignes,total,mode);
+  }
+
+  // Un seul reçu pour tout le panier
+  function afficherRecuPanier(lignes,total,mode){
+    const boutique=(lireSession()?.user?.user_metadata?.boutique)||"notre boutique";
+    const detail=lignes.map(l=>`- ${l.qte} × ${l.produit} = ${fcfa(l.qte*l.prix)}`).join("\n");
+    const texte=`Bonjour, merci pour votre achat chez ${boutique} :\n${detail}\nTotal : ${fcfa(total)} (${MODES[mode]}). Merci de votre confiance !`;
+    let n=(document.getElementById("v-recu-wa").value||"").replace(/\D/g,"");
+    if(n&&!n.startsWith("237"))n="237"+n;
+
+    const f=document.createElement("div");
+    f.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20";
+    f.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:420px;width:100%">
+      <h2 style="margin:0 0 8px;color:#0f4d2e">Panier enregistré ✔</h2>
+      <p style="color:#55625b">Total : <b>${fcfa(total)}</b></p>
+      ${n?`<a class="btn vert" target="_blank" style="text-decoration:none" href="https://wa.me/${n}?text=${encodeURIComponent(texte)}">Envoyer le reçu sur WhatsApp</a>`:""}
+      <button class="btn blanc" type="button" id="pn-fermer" style="border:2px solid #e6ebe8">Fermer</button>
+    </div>`;
+    document.body.appendChild(f);
+    f.querySelector("#pn-fermer").onclick=()=>f.remove();
+  }
+})();
+</script>
