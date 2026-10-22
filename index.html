@@ -1943,3 +1943,77 @@ rResume=async function(){
   new MutationObserver(retirer).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
+<script>
+// ---------- Sauvegarde et restauration de toutes les données (fichier JSON) ----------
+(function(){
+  const STORES=["clients","ventes","depenses","credits","produits"];
+
+  // Ajoute la zone de sauvegarde dans « Mon profil »
+  function ajouterBloc(){
+    const p=document.getElementById("profil");
+    if(!p||document.getElementById("zone-sauvegarde"))return;
+    const d=document.createElement("div");
+    d.id="zone-sauvegarde";
+    d.className="it";
+    d.innerHTML=`<b>Sauvegarde de mes données</b>
+      <div class="sub">Une copie de toutes vos données dans un fichier sur votre téléphone. Gardez-le en lieu sûr.</div>
+      <button class="mini gr" type="button" id="sv-export">Sauvegarder mes données</button>
+      <label class="mini" style="cursor:pointer">Restaurer une sauvegarde<input id="sv-import" type="file" accept="application/json,.json" style="display:none"></label>`;
+    p.appendChild(d);
+  }
+  new MutationObserver(ajouterBloc).observe(document.body,{childList:true,subtree:true});
+  ajouterBloc();
+
+  // Téléchargement du fichier de sauvegarde
+  document.addEventListener("click",async e=>{
+    if(!e.target.closest("#sv-export"))return;
+    try{
+      const sauvegarde={version:1,date:new Date().toISOString(),utilisateur:lireSession()?.user?.id||null,donnees:{}};
+      for(const s of STORES)sauvegarde.donnees[s]=await tout(s);
+      const url=URL.createObjectURL(new Blob([JSON.stringify(sauvegarde)],{type:"application/json"}));
+      const a=document.createElement("a");
+      a.href=url;
+      a.download="cahier-pro-sauvegarde-"+new Date().toISOString().slice(0,10)+".json";
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),10000);
+      toast("Sauvegarde téléchargée ✔");
+    }catch(err){toast("Sauvegarde impossible. Réessayez.")}
+  });
+
+  // Restauration depuis un fichier choisi
+  document.addEventListener("change",async e=>{
+    if(e.target.id!=="sv-import")return;
+    const fichier=e.target.files[0];
+    e.target.value="";
+    if(!fichier)return;
+    try{
+      const s=JSON.parse(await fichier.text());
+      if(s.version!==1||!s.donnees)return toast("Ce fichier n'est pas une sauvegarde Cahier Pro.");
+      const moi=lireSession()?.user?.id;
+      if(s.utilisateur&&moi&&s.utilisateur!==moi)return toast("Cette sauvegarde appartient à un autre compte.");
+      if(!confirm("Restaurer la sauvegarde du "+new Date(s.date).toLocaleDateString("fr-FR")+" ? Les éléments plus récents sur ce téléphone ne seront pas écrasés."))return;
+
+      let total=0;
+      for(const store of STORES){
+        const recus=(s.donnees[store]||[]).filter(r=>r&&typeof r.id==="string");
+        const locaux=new Map((await tout(store)).map(o=>[o.id,o]));
+        const aEcrire=recus.filter(r=>{const c=locaux.get(r.id);return !c||new Date(r.maj_le)>new Date(c.maj_le)});
+        if(!aEcrire.length)continue;
+        await new Promise((ok,ko)=>{
+          const t=baseLocale.transaction([store,"file_attente"],"readwrite");
+          aEcrire.forEach(r=>{
+            t.objectStore(store).put(r);
+            t.objectStore("file_attente").put({id:store+":"+r.id,store,rid:r.id});
+          });
+          t.oncomplete=ok;t.onerror=()=>ko(t.error);
+        });
+        total+=aEcrire.length;
+      }
+      planifierSync();
+      toast("Restauration terminée : "+total+" élément(s) ✔");
+      const actif=document.querySelector("main.actif");
+      if(actif)await rendre(actif.id);
+    }catch(err){toast("Fichier illisible ou restauration impossible.")}
+  });
+})();
+</script>
