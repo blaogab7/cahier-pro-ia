@@ -1398,3 +1398,45 @@ ajouterBoutonsModifier();
   });
 })();
 </script>
+<script>
+// ---------- Export des données en CSV (ouvrable dans Excel) ----------
+const EXPORTS={
+  ventes:{nom:"ventes",cols:[["cree_le","Date",x=>quand(x.cree_le)],["produit","Produit"],["quantite","Quantité"],["montant","Montant FCFA"],["mode_paiement","Mode",x=>MODES[x.mode_paiement]],["note","Note"]]},
+  depenses:{nom:"depenses",cols:[["cree_le","Date",x=>quand(x.cree_le)],["motif","Motif"],["montant","Montant FCFA"],["note","Note"]]},
+  produits:{nom:"stock",cols:[["nom","Produit"],["quantite","Quantité en stock"],["prix_vente","Prix par article FCFA"],["seuil_alerte","Seuil d'alerte"],["note","Note"]]},
+  credits:{nom:"credits",cols:[["date_credit","Date",x=>quand(x.date_credit)],["nom_client","Client"],["whatsapp","WhatsApp"],["montant","Montant FCFA"],["statut","Statut",x=>x.statut==="paye"?"Payé":"En attente"],["note","Note"]]}
+};
+
+function versCsv(lignes,colonnes){
+  const echap=v=>{const s=v==null?"":String(v);return /[";\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+  const entete=colonnes.map(c=>c[1]).join(";");
+  const corps=lignes.map(l=>colonnes.map(c=>echap(c[2]?c[2](l):l[c[0]])).join(";"));
+  return "\uFEFF"+[entete,...corps].join("\r\n");
+}
+
+async function exporter(store){
+  if(!baseLocale)return toast("Ouvrez d'abord le tableau de bord.");
+  const lignes=await tout(store);
+  if(!lignes.length)return toast("Rien à exporter pour l'instant.");
+  const c=EXPORTS[store];
+  const blob=new Blob([versCsv(lignes,c.cols)],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download="cahier-pro-"+c.nom+"-"+new Date().toISOString().slice(0,10)+".csv";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+// Zone « Mes données » dans Mon profil
+(function(){
+  const p=document.getElementById("profil");
+  if(!p||document.getElementById("zone-export"))return;
+  const z=document.createElement("div");
+  z.id="zone-export";
+  z.innerHTML='<h3>Mes données</h3><p class="petit">Téléchargez vos données en fichiers CSV, ouvrables dans Excel ou Google Sheets.</p>'+
+    Object.keys(EXPORTS).map(k=>`<button class="mini" type="button" data-export="${k}">Exporter ${EXPORTS[k].nom}</button>`).join("");
+  p.appendChild(z);
+  z.addEventListener("click",e=>{const b=e.target.closest("[data-export]");if(b)exporter(b.dataset.export)});
+})();
+</script>
