@@ -1311,3 +1311,72 @@ async function supprimerCompte(){
   }catch(err){toast("Suppression impossible. Réessayez.")}
 }
 </script>
+<script>
+// ---------- Modifier une vente, une dépense ou un produit ----------
+const MODES_EDIT=[["especes","Espèces"],["mtn","MTN Mobile Money"],["orange","Orange Money"],["credit","À crédit"]];
+const CHAMPS_EDIT={
+  ventes:[{k:"mode_paiement",l:"Mode de paiement",t:"mode"},{k:"note",l:"Note",t:"texte"}],
+  depenses:[{k:"motif",l:"Motif",t:"texte"},{k:"montant",l:"Montant (FCFA)",t:"nombre"},{k:"note",l:"Note",t:"texte"}],
+  produits:[{k:"nom",l:"Nom du produit",t:"texte"},{k:"quantite",l:"Quantité en stock",t:"nombre"},{k:"seuil_alerte",l:"Seuil d'alerte",t:"nombre"},{k:"prix_vente",l:"Prix par article (FCFA)",t:"nombre"},{k:"note",l:"Note",t:"texte"}]
+};
+
+// Écriture sur le téléphone, puis envoi vers la base
+function ecrireLocal(store,o){return new Promise((ok,ko)=>{
+  const t=baseLocale.transaction([store,"file_attente"],"readwrite");
+  t.objectStore(store).put(o);
+  t.objectStore("file_attente").put({id:store+":"+o.id,store,rid:o.id});
+  t.oncomplete=()=>{ok();planifierSync()};t.onerror=()=>ko(t.error);})}
+
+async function ouvrirEdition(store,id){
+  const o=(await tout(store)).find(x=>x.id===id);
+  if(!o)return toast("Élément introuvable.");
+  const champs=CHAMPS_EDIT[store];
+  const fond=document.createElement("div");
+  fond.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20";
+  const lignes=champs.map(c=>{
+    const v=o[c.k]==null?"":o[c.k];
+    const idc="ed-"+c.k;
+    if(c.t==="mode")return `<label for="${idc}">${c.l}</label><select id="${idc}">${MODES_EDIT.map(([val,lib])=>`<option value="${val}"${val===v?" selected":""}>${lib}</option>`).join("")}</select>`;
+    return `<label for="${idc}">${c.l}</label><input id="${idc}" type="${c.t==="nombre"?"number":"text"}" value="${esc(v)}">`;
+  }).join("");
+  fond.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow:auto">
+    <h2 style="margin:0 0 8px;color:#0f4d2e">Modifier</h2>
+    <form id="cp-ed" novalidate>${lignes}
+      <button class="btn vert" type="submit">Enregistrer</button>
+      <button class="btn blanc" type="button" id="ed-non" style="border:2px solid #e6ebe8">Annuler</button>
+    </form></div>`;
+  document.body.appendChild(fond);
+  fond.querySelector("#ed-non").addEventListener("click",()=>fond.remove());
+  fond.querySelector("#cp-ed").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const nouv=Object.assign({},o);
+    for(const c of champs){
+      const raw=document.getElementById("ed-"+c.k).value.trim();
+      if(c.t==="nombre"){const n=entier(raw);if(isNaN(n)||n<0)return toast("Valeur invalide : "+c.l);nouv[c.k]=n;}
+      else nouv[c.k]=raw||null;
+    }
+    if(store==="produits"&&!nouv.nom)return toast("Le nom du produit est obligatoire.");
+    if(store==="depenses"&&(!nouv.motif||!(nouv.montant>0)))return toast("Motif et montant obligatoires.");
+    nouv.maj_le=maintenant();
+    await ecrireLocal(store,nouv);
+    fond.remove();
+    toast("Modifié ✔");
+    const actif=document.querySelector("main.actif");if(actif)rendre(actif.id);
+  });
+}
+
+// Ajoute le bouton « Modifier » à côté de chaque « Supprimer »
+function ajouterBoutonsModifier(){
+  document.querySelectorAll("button[data-del]").forEach(b=>{
+    if(b.dataset.modifOk||!CHAMPS_EDIT[b.dataset.store])return;
+    b.dataset.modifOk="1";
+    const m=document.createElement("button");
+    m.className="mini";m.type="button";m.textContent="Modifier";
+    m.dataset.edit=b.dataset.store;m.dataset.id=b.dataset.del;
+    b.parentNode.insertBefore(m,b);
+  });
+}
+new MutationObserver(ajouterBoutonsModifier).observe(document.body,{childList:true,subtree:true});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-edit]");if(b)ouvrirEdition(b.dataset.edit,b.dataset.id)});
+ajouterBoutonsModifier();
+</script>
