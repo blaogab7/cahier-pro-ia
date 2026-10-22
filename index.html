@@ -2444,3 +2444,92 @@ rendre=async function(id){
   return r;
 };
 </script>
+<script>
+// ---------- Fiche client ----------
+(function(){
+  // Zone de recherche en haut de l'écran Crédits
+  function ajouterZone(){
+    const m=document.getElementById("credits");
+    if(!m||document.getElementById("fc-zone"))return;
+    const z=document.createElement("div");
+    z.id="fc-zone";
+    z.className="it";
+    z.innerHTML=`<b>Fiche client</b>
+      <div class="sub">Tapez le nom d'un client pour voir ses achats, ses versements et son reste à payer.</div>
+      <input id="fc-nom" type="text" list="fc-liste" placeholder="Nom du client">
+      <datalist id="fc-liste"></datalist>
+      <button class="mini" type="button" id="fc-ouvrir">Ouvrir la fiche</button>`;
+    m.insertBefore(z,m.children[1]||null);
+  }
+  new MutationObserver(ajouterZone).observe(document.body,{childList:true,subtree:true});
+  ajouterZone();
+
+  // Liste des clients proposée pendant la saisie
+  document.addEventListener("focusin",async e=>{
+    if(e.target.id!=="fc-nom")return;
+    const clients=await tout("clients");
+    document.getElementById("fc-liste").innerHTML=clients
+      .filter(x=>x.supprime!==true)
+      .map(x=>`<option value="${esc(x.nom)}">`).join("");
+  });
+
+  document.addEventListener("click",async e=>{
+    if(!e.target.closest("#fc-ouvrir"))return;
+    const nom=document.getElementById("fc-nom").value.trim().toLowerCase();
+    if(!nom)return toast("Entrez le nom du client.");
+
+    const [clients,ventes,credits]=await Promise.all(["clients","ventes","credits"].map(tout));
+    const client=clients.find(x=>x.supprime!==true&&x.nom.trim().toLowerCase()===nom);
+    if(!client)return toast("Client introuvable.");
+
+    const ventesClient=ventes
+      .filter(x=>x.client_id===client.id&&x.supprime!==true)
+      .sort((a,b)=>new Date(b.cree_le)-new Date(a.cree_le));
+    const creditsClient=credits.filter(x=>x.client_id===client.id&&x.supprime!==true);
+
+    const totalAchats=ventesClient.reduce((t,x)=>t+x.montant,0);
+    const totalVerse=creditsClient.reduce((t,x)=>t+(x.rembourse||0),0);
+    const reste=creditsClient.filter(x=>x.statut!=="paye")
+      .reduce((t,x)=>t+Math.max(0,x.montant-(x.rembourse||0)),0);
+
+    const versements=creditsClient
+      .flatMap(c=>(c.versements||[]).map(v=>({...v,credit:c})))
+      .sort((a,b)=>new Date(b.date)-new Date(a.date))
+      .slice(0,10);
+
+    const lignesAchats=ventesClient.slice(0,10).map(x=>
+      `<div class="sub">${quand(x.cree_le)} · ${esc(x.produit)} · ${fcfa(x.montant)}</div>`).join("")
+      || '<div class="sub">Aucun achat à crédit.</div>';
+    const lignesVersements=versements.map(v=>
+      `<div class="sub">${quand(v.date)} · ${fcfa(v.montant)}</div>`).join("")
+      || '<div class="sub">Aucun versement.</div>';
+
+    // Message WhatsApp de relance, seulement si un reste est dû
+    let boutonWa="";
+    let n=(client.whatsapp||"").replace(/\D/g,"");
+    if(n&&reste>0){
+      if(!n.startsWith("237"))n="237"+n;
+      const msg=`Bonjour ${client.nom}, j'espère que vous allez bien. Je me permets de vous rappeler le solde de ${fcfa(reste)} restant sur vos achats. Merci de bien vouloir régler quand cela vous conviendra. Merci pour votre confiance !`;
+      boutonWa=`<a class="btn orange" target="_blank" style="text-decoration:none" href="https://wa.me/${n}?text=${encodeURIComponent(msg)}">Rappeler sur WhatsApp</a>`;
+    }
+
+    const fond=document.createElement("div");
+    fond.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20";
+    fond.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow:auto">
+      <h2 style="margin:0 0 4px;color:#0f4d2e">${esc(client.nom)}</h2>
+      <p class="petit">${client.whatsapp?"WhatsApp : "+esc(client.whatsapp):"Pas de numéro WhatsApp enregistré"}</p>
+      <div class="grille">
+        <div class="carte"><div class="lib">Achats à crédit</div><div class="val">${fcfa(totalAchats)}</div></div>
+        <div class="carte"><div class="lib">Total versé</div><div class="val">${fcfa(totalVerse)}</div></div>
+        <div class="carte large"><div class="lib">Reste à payer</div><div class="val">${fcfa(reste)}</div></div>
+      </div>
+      ${boutonWa}
+      <h3>Derniers achats à crédit</h3>${lignesAchats}
+      <h3>Derniers versements</h3>${lignesVersements}
+      <button class="btn blanc" type="button" id="fc-fermer" style="border:2px solid #e6ebe8;margin-top:12px">Fermer</button>
+    </div>`;
+    document.body.appendChild(fond);
+    fond.querySelector("#fc-fermer").onclick=()=>fond.remove();
+  });
+})();
+</script>
