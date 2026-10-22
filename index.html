@@ -1280,3 +1280,34 @@ accesOk=function(){return true};
   });
 })();
 </script>
+<script>
+// Suppression de compte et liens légaux, dans « Mon profil »
+(function(){
+  const profil=document.getElementById("profil");
+  if(!profil||document.getElementById("zone-legal"))return;
+  const zone=document.createElement("div");
+  zone.id="zone-legal";
+  zone.innerHTML=`
+    <h3>Informations légales</h3>
+    <p><a href="confidentialite.html" target="_blank">Politique de confidentialité</a> · <a href="conditions.html" target="_blank">Conditions d'utilisation</a></p>
+    <h3 style="color:#c0392b">Zone sensible</h3>
+    <p class="petit">Supprimer mon compte efface définitivement toutes mes données. Cette action est irréversible.</p>
+    <button class="btn blanc" id="btn-suppr-compte" type="button" style="border:2px solid #c0392b;color:#c0392b">Supprimer mon compte</button>`;
+  profil.appendChild(zone);
+  document.getElementById("btn-suppr-compte").addEventListener("click",supprimerCompte);
+})();
+
+async function supprimerCompte(){
+  const rep=prompt("Pour confirmer, écrivez SUPPRIMER en majuscules :");
+  if(rep!=="SUPPRIMER")return toast("Suppression annulée.");
+  if(!navigator.onLine)return toast("Il faut Internet pour supprimer le compte.");
+  try{
+    const id=lireSession().user.id;
+    await sb("/rest/v1/rpc/supprimer_mon_compte",{methode:"POST",corps:{},jeton:await jeton()});
+    indexedDB.deleteDatabase("cahierpro_"+id);
+    localStorage.clear();
+    alert("Votre compte a été supprimé.");
+    location.reload();
+  }catch(err){toast("Suppression impossible. Réessayez.")}
+}
+</script>
