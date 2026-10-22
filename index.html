@@ -1739,3 +1739,28 @@ calculerTableau=async function(){
   $("t-credits").textContent=fcfa(c.filter(x=>x.statut!=="paye").reduce((t,x)=>t+restant(x),0));
 };
 </script>
+<style>
+/* ---------- Couleurs et finitions ---------- */
+:root{color-scheme:light;--vert:#15803d;--orange:#ea580c;--rouge:#dc2626;--fond:#f4f6fb;--texte:#1f2937;--gris:#6b7280}
+html,body{background:var(--fond)!important;color:var(--texte)!important}
+a{color:var(--vert)}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#fff;color:var(--texte);font-size:16px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--vert);border-color:var(--vert)}
+.mini{display:inline-block;margin:4px 6px 0 0;padding:7px 12px;border:0;border-radius:8px;color:#fff;background:var(--vert);font-size:14px}
+.mini.or{background:var(--orange)}
+.mini.gr{background:var(--vert)}
+.mini[data-del]{background:var(--rouge)}
+.it{background:#fff;border-radius:12px;padding:12px;margin:10px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.sub{color:var(--gris);font-size:13px;margin-top:4px}
+.rouge{color:var(--rouge);font-weight:bold;margin-top:4px}
+.vide{color:var(--gris);text-align:center;padding:24px}
+</style>
+<script>
+// Couleur de la barre du haut sur Android
+(function(){
+  let m=document.querySelector('meta[name="theme-color"]');
+  if(!m){m=document.createElement("meta");m.name="theme-color";document.head.appendChild(m);}
+  m.content="#15803d";
+})();
+</script>
