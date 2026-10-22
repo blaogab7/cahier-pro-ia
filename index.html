@@ -1815,3 +1815,73 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--vert);border-col
   },true);
 })();
 </script>
+<script>
+// ---------- Modifier : version corrigée (noms, prix, quantités) ----------
+
+// Corrige une fonction appelée mais jamais définie (suppression de vente, retour au stock)
+if(typeof ecrireBase!=="function"){
+  window.ecrireBase=(store,o)=>ecrireLocal(store,o);
+}
+
+// Remplace la fonction « Modifier » d'origine
+ouvrirEdition=async function(store,id){
+  const o=(await tout(store)).find(x=>x.id===id);
+  if(!o)return toast("Élément introuvable.");
+  const champs=CHAMPS_EDIT[store];
+
+  const fond=document.createElement("div");
+  fond.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20";
+
+  const lignes=champs.map((c,i)=>{
+    const v=o[c.k]==null?"":o[c.k];
+    if(c.t==="mode")return `<label>${c.l}</label><select data-i="${i}">${MODES_EDIT.map(([val,lib])=>`<option value="${val}"${val===v?" selected":""}>${lib}</option>`).join("")}</select>`;
+    return `<label>${c.l}</label><input data-i="${i}" type="${c.t==="nombre"?"number":"text"}" inputmode="${c.t==="nombre"?"numeric":"text"}" value="${esc(v)}">`;
+  }).join("");
+
+  fond.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow:auto">
+    <h2 style="margin:0 0 8px;color:#0f4d2e">Modifier</h2>
+    <form novalidate>${lignes}
+      <button class="btn vert" type="submit">Enregistrer</button>
+      <button class="btn blanc" type="button" data-annuler style="border:2px solid #e6ebe8">Annuler</button>
+    </form></div>`;
+  document.body.appendChild(fond);
+
+  fond.querySelector("[data-annuler]").onclick=()=>fond.remove();
+
+  fond.querySelector("form").onsubmit=async e=>{
+    e.preventDefault();
+    const nouv=Object.assign({},o);
+
+    // Lecture des champs à l'intérieur de la fenêtre uniquement
+    for(const [i,c] of champs.entries()){
+      const raw=fond.querySelector(`[data-i="${i}"]`).value.trim();
+      if(c.t==="nombre"){
+        const n=entier(raw);
+        if(isNaN(n)||n<0)return toast("Valeur invalide : "+c.l);
+        nouv[c.k]=n;
+      }else nouv[c.k]=raw||null;
+    }
+    if(store==="produits"&&!nouv.nom)return toast("Le nom du produit est obligatoire.");
+    if(store==="depenses"&&(!nouv.motif||!(nouv.montant>0)))return toast("Motif et montant obligatoires.");
+
+    nouv.maj_le=maintenant();
+
+    // Enregistrement, puis relecture pour vérifier
+    try{
+      await ecrireLocal(store,nouv);
+      const relu=(await tout(store)).find(x=>x.id===id);
+      if(!relu)throw new Error("introuvable après écriture");
+      if(store==="produits"&&(relu.nom!==nouv.nom||relu.prix_vente!==nouv.prix_vente||relu.quantite!==nouv.quantite))
+        throw new Error("valeurs différentes après écriture");
+    }catch(err){
+      console.warn("Modification :",err);
+      return toast("Enregistrement impossible. Réessayez.");
+    }
+
+    fond.remove();
+    toast("Modifié ✔");
+    const actif=document.querySelector("main.actif");
+    if(actif)await rendre(actif.id);
+  };
+};
+</script>
