@@ -2661,3 +2661,42 @@ rResume=async function(){
   new MutationObserver(ordonner).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
+<script>
+// ---------- Option : afficher ou masquer le bloc « Aujourd'hui » sur l'accueil ----------
+(function(){
+  const cle="cp_masquer_jour";
+  const masque=()=>{try{return localStorage.getItem(cle)==="1"}catch(e){return false}};
+  const enregistrer=v=>{try{localStorage.setItem(cle,v?"1":"0")}catch(e){}};
+
+  function appliquer(){
+    const z=document.getElementById("jour-zone");
+    const b=document.getElementById("b-option-jour");
+    if(!z||!b)return;
+    const cache=masque();
+    z.style.display=cache?"none":"";
+    const texte=cache?"Afficher le bloc Aujourd'hui":"Masquer le bloc Aujourd'hui";
+    if(b.textContent!==texte)b.textContent=texte;
+  }
+
+  function ajouterBouton(){
+    const z=document.getElementById("jour-zone");
+    if(!z||document.getElementById("b-option-jour"))return;
+    const b=document.createElement("button");
+    b.id="b-option-jour";
+    b.type="button";
+    b.className="mini";
+    b.style.marginBottom="10px";
+    z.parentNode.insertBefore(b,z);
+  }
+
+  document.addEventListener("click",e=>{
+    if(!e.target.closest("#b-option-jour"))return;
+    enregistrer(!masque());
+    appliquer();
+  });
+
+  new MutationObserver(()=>{ajouterBouton();appliquer();}).observe(document.body,{childList:true,subtree:true});
+  ajouterBouton();
+  appliquer();
+})();
+</script>
