@@ -2838,3 +2838,75 @@ rResume=async function(){
   new MutationObserver(ajouter).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
+<script>
+// ---------- Aide intégrée pour les vendeurs (sans IA, hors connexion) ----------
+(function(){
+  const QA=[
+    {q:"Comment enregistrer une vente ?",r:"Allez dans Ventes, indiquez le produit, le montant et le mode de paiement, puis appuyez sur Enregistrer la vente. Si le produit est dans votre stock, son prix est proposé et le stock diminue automatiquement.",mots:"vente vendre enregistrer produit"},
+    {q:"Comment vendre plusieurs articles en une fois ?",r:"Dans Ventes, utilisez la zone « Plusieurs articles ? » : ajoutez chaque article au panier, puis appuyez sur Valider le panier. Un seul paiement et un seul reçu.",mots:"panier plusieurs articles multiple"},
+    {q:"Comment ajouter un produit au stock ?",r:"Allez dans Stock, remplissez le nom, la quantité, le seuil d'alerte et le prix de vente (et le prix d'achat si vous le connaissez), puis appuyez sur Enregistrer.",mots:"stock produit ajouter quantite article"},
+    {q:"Comment modifier une vente, une dépense ou un produit ?",r:"Appuyez sur Modifier à côté de l'élément, changez les champs souhaités, puis appuyez sur Enregistrer.",mots:"modifier changer corriger prix nom"},
+    {q:"Comment supprimer une vente ?",r:"Appuyez sur Supprimer, puis sur Confirmer. Le stock des produits concernés revient automatiquement.",mots:"supprimer effacer annuler vente"},
+    {q:"Comment enregistrer une vente à crédit ?",r:"Dans Ventes, choisissez le mode de paiement « À crédit », indiquez le nom du client (et son WhatsApp si vous voulez envoyer des rappels).",mots:"credit dette client a credit"},
+    {q:"Comment noter un remboursement ?",r:"Allez dans Crédits : appuyez sur Rembourser pour un paiement partiel, ou sur Tout payer pour solder la dette.",mots:"rembourser remboursement payer solder credit"},
+    {q:"Comment relancer un client qui doit de l'argent ?",r:"Dans Crédits, appuyez sur Rappeler sur WhatsApp : un message poli indiquant le montant restant est préparé.",mots:"relance rappel whatsapp dette client"},
+    {q:"Comment voir ce que doit un client ?",r:"Dans Crédits, tapez le nom du client dans Fiche client, puis appuyez sur Ouvrir la fiche : vous verrez ses achats, ses versements et son reste à payer.",mots:"fiche client reste dette historique"},
+    {q:"Où voir mes bénéfices du mois ?",r:"Sur l'accueil, appuyez sur Résumé du mois : ventes, dépenses, marge et bénéfice réel.",mots:"benefice resume mois marge gain"},
+    {q:"Pourquoi mon bénéfice semble faux ?",r:"Renseignez le prix d'achat de vos produits dans Stock. Sans prix d'achat, la marge ne peut pas être exacte.",mots:"benefice faux marge prix achat"},
+    {q:"Comment faire la clôture de caisse ?",r:"Sur l'accueil, appuyez sur Clôturer la caisse du jour, comptez les espèces, tapez le montant, puis Enregistrer la clôture. L'application calcule l'écart.",mots:"caisse cloture espèces ecart manque excedent"},
+    {q:"L'application marche-t-elle sans Internet ?",r:"Oui, après la première connexion. Vos données sont enregistrées sur le téléphone et se synchronisent dès que la connexion revient.",mots:"internet hors connexion offline reseau synchro"},
+    {q:"Mes données sont-elles protégées ?",r:"Chaque compte ne voit que ses propres données. Faites une sauvegarde de temps en temps : Mon profil, puis Sauvegarder mes données.",mots:"securite donnees protege sauvegarde perdre"},
+    {q:"Comment restaurer une sauvegarde ?",r:"Allez dans Mon profil, appuyez sur Restaurer une sauvegarde, puis choisissez le fichier que vous avez enregistré.",mots:"restaurer sauvegarde recuperer fichier"},
+    {q:"J'ai oublié mon mot de passe.",r:"Sur l'écran de connexion, appuyez sur Mot de passe oublié et suivez les instructions reçues par email.",mots:"mot de passe oublie reinitialiser connexion"},
+    {q:"Comment installer l'application sur mon téléphone ?",r:"Ouvrez le site dans Chrome, appuyez sur les trois petits points (⋮), puis sur Installer l'application.",mots:"installer application telephone chrome ecran"},
+    {q:"Comment supprimer mon compte ?",r:"Allez dans Mon profil, appuyez sur Supprimer mon compte, puis tapez SUPPRIMER pour confirmer. Cette action est définitive.",mots:"supprimer compte effacer donnees"}
+  ];
+
+  const norm=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+
+  // Bouton ajouté à la rangée « Autres pages »
+  function bouton(){
+    const t=document.getElementById("tableau");
+    if(!t||document.getElementById("b-aide"))return;
+    const rangee=[...t.querySelectorAll(":scope > div")].find(d=>d.querySelector('button[data-va="activite"]'));
+    if(!rangee)return;
+    const b=document.createElement("button");
+    b.id="b-aide";
+    b.type="button";
+    b.className="mini gr";
+    b.textContent="Aide et questions";
+    rangee.appendChild(b);
+  }
+
+  function ouvrir(){
+    const fond=document.createElement("div");
+    fond.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;padding:20px;z-index:20;overflow:auto";
+    fond.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:460px;width:100%;margin-top:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <h2 style="margin:0;color:#0f4d2e">Aide</h2>
+        <button type="button" id="aide-fermer" class="mini gr">Fermer</button>
+      </div>
+      <input id="aide-recherche" type="text" placeholder="Tapez votre question, ex. stock, crédit" style="margin-top:12px">
+      <div id="aide-liste" style="margin-top:12px"></div>
+      <p class="petit">Vous n'avez pas trouvé votre réponse ? Écrivez-nous : <a href="mailto:blaogaleader@gmail.com">blaogaleader@gmail.com</a></p>
+    </div>`;
+    document.body.appendChild(fond);
+
+    const liste=fond.querySelector("#aide-liste");
+    const afficher=()=>{
+      const mots=norm(fond.querySelector("#aide-recherche").value.trim()).split(/\s+/).filter(Boolean);
+      const resultats=QA.filter(x=>mots.every(m=>norm(x.q+" "+x.r+" "+x.mots).includes(m)));
+      liste.innerHTML=resultats.length
+        ? resultats.map(x=>`<details class="it"><summary><b>${esc(x.q)}</b></summary><p style="margin:8px 0 0">${esc(x.r)}</p></details>`).join("")
+        : '<div class="vide">Aucune réponse trouvée. Essayez d\'autres mots.</div>';
+    };
+    fond.querySelector("#aide-recherche").addEventListener("input",afficher);
+    fond.querySelector("#aide-fermer").onclick=()=>fond.remove();
+    afficher();
+  }
+
+  document.addEventListener("click",e=>{if(e.target.closest("#b-aide"))ouvrir()});
+  new MutationObserver(bouton).observe(document.body,{childList:true,subtree:true});
+  bouton();
+})();
+</script>
