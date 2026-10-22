@@ -1531,3 +1531,50 @@ rendre=async function(id){
   return rendreAvantResume(id);
 };
 </script>
+<script>
+// ---------- Reçu de vente à envoyer par WhatsApp ----------
+
+// Champ facultatif « WhatsApp du client » dans le formulaire de vente
+(function(){
+  const form=document.getElementById("f-vente");
+  if(!form||document.getElementById("v-recu-wa"))return;
+  const btn=form.querySelector("button[type=submit]");
+  const bloc=document.createElement("div");
+  bloc.innerHTML='<label for="v-recu-wa">WhatsApp du client pour le reçu (facultatif)</label><input id="v-recu-wa" type="tel" inputmode="tel">';
+  btn.parentNode.insertBefore(bloc,btn);
+})();
+
+// Fenêtre de reçu après chaque vente
+function proposerRecu(o){
+  const ses=lireSession();
+  const boutique=(ses&&ses.user.user_metadata&&ses.user.user_metadata.boutique)||"notre boutique";
+  const qte=o.quantite||1;
+  const msg=`Bonjour, merci pour votre achat chez ${boutique} : ${qte} × ${o.produit} = ${fcfa(o.montant)} (${MODES[o.mode_paiement]}). Merci de votre confiance !`;
+  let n=(document.getElementById("v-recu-wa").value||"").replace(/\D/g,"");
+  if(n&&!n.startsWith("237"))n="237"+n;
+
+  const fond=document.createElement("div");
+  fond.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20";
+  fond.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:420px;width:100%">
+    <h2 style="margin:0 0 8px;color:#0f4d2e">Reçu prêt</h2>
+    <p style="color:#55625b">Message à envoyer${n?" à ce client":""} :</p>
+    <div class="it">${esc(msg)}</div>
+    <button class="btn vert" type="button" id="rc-envoyer">Envoyer par WhatsApp</button>
+    <button class="btn blanc" type="button" id="rc-fermer" style="border:2px solid #e6ebe8">Fermer</button>
+  </div>`;
+  document.body.appendChild(fond);
+  fond.querySelector("#rc-fermer").addEventListener("click",()=>fond.remove());
+  fond.querySelector("#rc-envoyer").addEventListener("click",()=>{
+    window.open("https://wa.me/"+n+"?text="+encodeURIComponent(msg),"_blank");
+    fond.remove();
+  });
+}
+
+// Après l'enregistrement d'une vente, on propose le reçu
+const ecrireAvantRecu=ecrire;
+ecrire=async function(store,o){
+  const r=await ecrireAvantRecu(store,o);
+  if(store==="ventes")proposerRecu(o);
+  return r;
+};
+</script>
