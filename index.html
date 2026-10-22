@@ -1667,3 +1667,75 @@ async function afficherHistorique(){
   st.appendChild(b);
 })();
 </script>
+<script>
+// ---------- Crédits : remboursements partiels, relances, retards ----------
+
+// Ces champs sont envoyés et reçus avec les crédits
+COLS.credits.push("rembourse","versements");
+
+// Montant restant d'un crédit
+const restant=x=>Math.max(0,x.montant-(x.rembourse||0));
+
+async function rCredits(){
+  const c=await tout("credits");
+  const enCours=c.filter(x=>x.statut!=="paye");
+  $("c-total").textContent=fcfa(enCours.reduce((t,x)=>t+restant(x),0));
+  const l=c.slice().sort((a,b)=>(a.statut==="paye")-(b.statut==="paye")||new Date(b.date_credit)-new Date(a.date_credit));
+  $("l-credits").innerHTML=l.length?l.map(x=>{
+    const versements=(x.versements||[]).map(v=>fcfa(v.montant)+" le "+quand(v.date)).join(" · ");
+    const enRetard=x.statut!=="paye"&&x.date_limite&&new Date(x.date_limite)<new Date();
+    return `<div class="it"><b>${esc(x.nom_client)}</b> · reste ${fcfa(restant(x))}
+      <div class="sub">Crédit de ${fcfa(x.montant)} · ${x.statut==="paye"?"✔ Soldé":"En attente"} · ${quand(x.date_credit)}${versements?"<br>Versements : "+esc(versements):""}</div>
+      ${enRetard?'<div class="rouge">En retard : à payer avant le '+new Date(x.date_limite).toLocaleDateString("fr-FR")+'</div>':""}
+      ${x.statut==="paye"?"":`<button class="mini or" data-act="rappel" data-id="${x.id}">Rappeler sur WhatsApp</button><button class="mini" data-act="rembourser" data-id="${x.id}">Rembourser</button><button class="mini gr" data-act="solder" data-id="${x.id}">Tout payer</button>`}
+      <button class="mini gr" data-del="${x.id}" data-store="credits" data-nom="${esc(x.nom_client)}">Supprimer</button></div>`;
+  }).join(""):'<div class="vide">Aucun crédit enregistré.</div>';
+}
+
+// Enregistre un versement, et solde le crédit si tout est payé
+async function appliquerVersement(c,m){
+  if(!accesOk())return;
+  c.rembourse=(c.rembourse||0)+m;
+  c.versements=[...(c.versements||[]),{montant:m,date:maintenant()}];
+  if(c.rembourse>=c.montant){c.rembourse=c.montant;c.statut="paye";}
+  c.maj_le=maintenant();
+  await ecrireLocal("credits",c);
+  toast(c.statut==="paye"?"Crédit soldé ✔":"Versement enregistré ✔");
+  rCredits();
+}
+
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-act='rappel'],[data-act='rembourser'],[data-act='solder']");
+  if(!b)return;
+  const c=(await tout("credits")).find(x=>x.id===b.dataset.id);
+  if(!c)return toast("Crédit introuvable.");
+  if(b.dataset.act==="rappel"){
+    let n=(c.whatsapp||"").replace(/\D/g,"");
+    if(!n)return toast("Ajoutez d'abord le numéro WhatsApp de ce client.");
+    if(!n.startsWith("237"))n="237"+n;
+    const msg=`Bonjour ${c.nom_client}, j'espère que vous allez bien. Je me permets de vous rappeler le solde de ${fcfa(restant(c))} restant sur votre achat. Merci de bien vouloir régler quand cela vous conviendra. Merci pour votre confiance !`;
+    window.open("https://wa.me/"+n+"?text="+encodeURIComponent(msg),"_blank");
+  }
+  if(b.dataset.act==="solder")await appliquerVersement(c,restant(c));
+  if(b.dataset.act==="rembourser"){
+    const m=entier(prompt("Montant versé (FCFA), maximum "+restant(c)+" :"));
+    if(!(m>0)||m>restant(c))return toast("Montant invalide.");
+    await appliquerVersement(c,m);
+  }
+});
+
+// Affichage de l'écran Crédits
+const rendreAvantCredits=rendre;
+rendre=async function(id){
+  if(id==="credits")return rCredits();
+  return rendreAvantCredits(id);
+};
+
+// Tableau de bord : montant réellement restant
+const calculerAvantCredits=calculerTableau;
+calculerTableau=async function(){
+  await calculerAvantCredits();
+  const c=await tout("credits");
+  $("t-credits").textContent=fcfa(c.filter(x=>x.statut!=="paye").reduce((t,x)=>t+restant(x),0));
+};
+</script>
