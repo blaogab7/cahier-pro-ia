@@ -2166,3 +2166,54 @@ rResume=async function(){
   }
 })();
 </script>
+<script>
+// ---------- Tableau de bord du jour ----------
+(function(){
+  // Ajoute la zone « Aujourd'hui » en haut de l'accueil
+  function ajouterZone(){
+    const t=document.getElementById("tableau");
+    if(!t||document.getElementById("jour-zone"))return;
+    const d=document.createElement("div");
+    d.id="jour-zone";
+    t.insertBefore(d,t.firstChild);
+  }
+  new MutationObserver(ajouterZone).observe(document.body,{childList:true,subtree:true});
+  ajouterZone();
+
+  // Calcul des chiffres du jour
+  async function majJour(){
+    const zone=document.getElementById("jour-zone");
+    if(!zone)return;
+    const debut=new Date();
+    debut.setHours(0,0,0,0);
+    const [v,d,p,c]=await Promise.all(["ventes","depenses","produits","credits"].map(tout));
+    const actifs=x=>x.supprime!==true;
+    const aujourdhui=x=>new Date(x.cree_le)>=debut;
+
+    const ventesJour=v.filter(actifs).filter(aujourdhui);
+    const depensesJour=d.filter(actifs).filter(aujourdhui);
+    const stockFaible=p.filter(actifs).filter(x=>x.quantite<=x.seuil_alerte);
+    const maintenant_=new Date();
+    const enRetard=c.filter(x=>x.statut!=="paye"&&x.date_limite&&new Date(x.date_limite)<maintenant_);
+    const totRetard=enRetard.reduce((t,x)=>t+Math.max(0,x.montant-(x.rembourse||0)),0);
+
+    zone.innerHTML=`
+      <h3 style="margin:0 0 8px">Aujourd'hui</h3>
+      <div class="grille">
+        <div class="carte"><div class="lib">Ventes du jour</div><div class="val">${fcfa(ventesJour.reduce((t,x)=>t+x.montant,0))}</div><div class="sub">${ventesJour.length} vente(s)</div></div>
+        <div class="carte"><div class="lib">Dépenses du jour</div><div class="val">${fcfa(depensesJour.reduce((t,x)=>t+x.montant,0))}</div></div>
+        <div class="carte"><div class="lib">Stock faible</div><div class="val">${stockFaible.length}</div><div class="sub">produit(s)</div></div>
+        <div class="carte"><div class="lib">Dettes en retard</div><div class="val">${fcfa(totRetard)}</div><div class="sub">${enRetard.length} client(s)</div></div>
+      </div>
+      ${stockFaible.length?`<p class="petit">À réapprovisionner : ${stockFaible.slice(0,5).map(x=>esc(x.nom)).join(", ")}</p>`:""}`;
+  }
+
+  // Mise à jour à chaque ouverture de l'accueil
+  const calculerAvantJour=calculerTableau;
+  calculerTableau=async function(){
+    await calculerAvantJour();
+    ajouterZone();
+    await majJour();
+  };
+})();
+</script>
