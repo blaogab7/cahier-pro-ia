@@ -2625,3 +2625,39 @@ rResume=async function(){
   new MutationObserver(()=>{lienConnexion();mettreAJour();}).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
+<style>
+/* En-tête : salutation à gauche, bouton de déconnexion à droite */
+#tableau > .entete{display:flex;justify-content:space-between;align-items:center;gap:10px}
+</style>
+<script>
+// ---------- Accueil après connexion : salutation et déconnexion en haut ----------
+(function(){
+  function ordonner(){
+    const t=document.getElementById("tableau");
+    if(!t)return;
+    const entete=t.querySelector(":scope > .entete");
+    if(!entete)return;
+
+    // Un seul bouton de déconnexion, placé dans l'en-tête
+    const quitter=document.getElementById("deco");
+    if(quitter)quitter.style.display="none";
+    const deco2=document.getElementById("deco2");
+    if(deco2&&deco2.parentElement!==entete){
+      deco2.style.margin="0";
+      deco2.style.width="auto";
+      deco2.style.padding="10px 14px";
+      deco2.style.fontSize="14px";
+      entete.appendChild(deco2);
+    }
+
+    // Ordre voulu : en-tête, boutons d'action, « Aujourd'hui », puis le reste
+    const gros=t.querySelector(":scope > .gros");
+    const jour=document.getElementById("jour-zone");
+    const voulu=[entete,gros,jour].filter(Boolean);
+    const deja=voulu.every((el,i)=>t.children[i]===el);
+    if(!deja)voulu.reverse().forEach(el=>t.insertBefore(el,t.firstChild));
+  }
+  ordonner();
+  new MutationObserver(ordonner).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
