@@ -2817,3 +2817,24 @@ rResume=async function(){
 /* Accueil : bouton « Se connecter » visible à côté de « S'inscrire et se connecter » */
 #accueil button[data-va="connexion"]{display:block!important;margin-top:12px}
 </style>
+<script>
+// Accueil (après connexion) : bouton vers le groupe WhatsApp des vendeurs
+(function(){
+  function ajouter(){
+    const t=document.getElementById("tableau");
+    if(!t||document.getElementById("groupe-vendeurs"))return;
+    const a=document.createElement("a");
+    a.id="groupe-vendeurs";
+    a.href="https://chat.whatsapp.com/GnTqDDZbcgG2JSiXqmgKGl";
+    a.target="_blank";
+    a.rel="noopener";
+    a.className="btn vert";
+    a.style.textDecoration="none";
+    a.style.marginTop="16px";
+    a.textContent="Rejoindre le groupe WhatsApp des vendeurs";
+    t.appendChild(a);
+  }
+  ajouter();
+  new MutationObserver(ajouter).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
