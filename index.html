@@ -1764,3 +1764,54 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--vert);border-col
   m.content="#15803d";
 })();
 </script>
+<style>
+/* ---------- Fenêtre de confirmation ---------- */
+#cf-fond{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px}
+#cf-boite{background:#fff;border-radius:14px;padding:20px;max-width:340px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+#cf-boite p{margin:0 0 16px;color:#1f2937;font-size:16px;line-height:1.4}
+#cf-boite .cf-btns{display:flex;gap:10px;justify-content:flex-end}
+#cf-boite button{padding:10px 16px;border:0;border-radius:8px;font-size:15px;cursor:pointer}
+#cf-non{background:#e5e7eb;color:#1f2937}
+#cf-oui{background:#dc2626;color:#fff}
+</style>
+<script>
+// ---------- Confirmations avant suppression et paiement total ----------
+(function(){
+  const fond=document.createElement("div");
+  fond.id="cf-fond";
+  fond.innerHTML='<div id="cf-boite"><p id="cf-texte"></p><div class="cf-btns"><button id="cf-non">Annuler</button><button id="cf-oui">Confirmer</button></div></div>';
+  document.body.appendChild(fond);
+
+  // Affiche la fenêtre et renvoie true ou false
+  function demander(texte){
+    return new Promise(res=>{
+      document.getElementById("cf-texte").textContent=texte;
+      fond.style.display="flex";
+      const fin=v=>{
+        fond.style.display="none";
+        document.getElementById("cf-oui").onclick=null;
+        document.getElementById("cf-non").onclick=null;
+        res(v);
+      };
+      document.getElementById("cf-oui").onclick=()=>fin(true);
+      document.getElementById("cf-non").onclick=()=>fin(false);
+    });
+  }
+
+  // Intercepte les clics avant les autres gestionnaires
+  window.addEventListener("click",async e=>{
+    const b=e.target.closest?e.target.closest("[data-del],[data-act='solder']"):null;
+    if(!b||b.dataset.cfOk)return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const texte=b.dataset.del!==undefined
+      ? "Supprimer "+(b.dataset.nom?"« "+b.dataset.nom+" »":"cet élément")+" ? Cette action est définitive."
+      : "Marquer ce crédit comme entièrement payé ?";
+    if(await demander(texte)){
+      b.dataset.cfOk="1";
+      b.click();
+      delete b.dataset.cfOk;
+    }
+  },true);
+})();
+</script>
