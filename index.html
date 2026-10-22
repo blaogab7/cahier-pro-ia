@@ -2910,3 +2910,130 @@ rResume=async function(){
   bouton();
 })();
 </script>
+<script>
+// ---------- Aide complète pour les vendeurs (remplace la version précédente) ----------
+(function(){
+  const QA=[
+    // Salutations
+    {q:"Bonjour",r:"Bonjour ! Je suis l'aide de Cahier Pro. Tapez votre question, par exemple « vente », « stock » ou « crédit ».",mots:"bonjour bonsoir salut hello coucou bjr bonne journee bonne soiree"},
+    {q:"Merci",r:"Avec plaisir ! Bonne journée et bonnes ventes.",mots:"merci beaucoup thanks super genial top"},
+    {q:"Au revoir",r:"Au revoir et à bientôt dans Cahier Pro !",mots:"au revoir bye bientot adieu a plus tard bonne nuit"},
+    {q:"Ça va ?",r:"Très bien, merci ! Comment puis-je vous aider aujourd'hui ?",mots:"ca va comment ca va ca roule cava"},
+    {q:"Qui es-tu ?",r:"Je suis l'aide intégrée de Cahier Pro. Je réponds aux questions sur l'application. Pour une question que je ne connais pas, écrivez-nous par email.",mots:"qui es tu assistant aide robot ia bot"},
+
+    // Ventes
+    {q:"Comment enregistrer une vente ?",r:"Allez dans Ventes, indiquez le produit, le montant et le mode de paiement, puis appuyez sur Enregistrer la vente. Si le produit est dans votre stock, le stock diminue automatiquement.",mots:"vente vendre enregistrer produit"},
+    {q:"Comment vendre plusieurs articles en une fois ?",r:"Dans Ventes, utilisez la zone « Plusieurs articles ? » : ajoutez chaque article au panier, puis appuyez sur Valider le panier. Un seul paiement et un seul reçu.",mots:"panier plusieurs articles multiple"},
+    {q:"Le prix se remplit-il tout seul ?",r:"Oui : si le produit existe dans votre stock, son prix de vente est proposé. Vous pouvez le modifier avant d'enregistrer.",mots:"prix automatique remplir proposer"},
+    {q:"Comment envoyer un reçu au client ?",r:"Après une vente, un reçu est proposé. Si vous avez tapé le WhatsApp du client, appuyez sur Envoyer le reçu : le message s'ouvre déjà rempli.",mots:"recu reçu whatsapp envoyer facture ticket"},
+    {q:"Que veut dire « Stock insuffisant » ?",r:"La quantité demandée est plus grande que votre stock. Vérifiez la quantité, ou ajoutez du stock dans Stock.",mots:"stock insuffisant erreur refus quantite"},
+    {q:"Puis-je modifier une vente ?",r:"Vous pouvez modifier le mode de paiement et la note avec Modifier. Pour changer le montant ou le produit, supprimez la vente puis refaites-la.",mots:"modifier changer corriger vente mode note"},
+    {q:"Comment supprimer une vente ?",r:"Appuyez sur Supprimer, puis sur Confirmer. Le stock des produits concernés revient automatiquement.",mots:"supprimer effacer annuler vente"},
+    {q:"Comment chercher une vente ?",r:"Dans Ventes, Dépenses, Crédits ou Stock, tapez un mot dans la barre de recherche : la liste se filtre.",mots:"rechercher recherche chercher trouver filtrer"},
+    {q:"Quels modes de paiement puis-je choisir ?",r:"Espèces, MTN Mobile Money, Orange Money, ou À crédit (le client paiera plus tard).",mots:"mode paiement mtn orange especes credit"},
+    {q:"Où voir les ventes du jour, de la semaine et du mois ?",r:"Allez dans Ventes : les totaux du jour, de la semaine et du mois y sont affichés.",mots:"ventes jour semaine mois total"},
+    {q:"Qu'est-ce que « Activité récente » ?",r:"Sur l'accueil, Activité récente montre les dernières actions faites dans l'application.",mots:"activite recente historique dernieres actions"},
+
+    // Stock
+    {q:"Comment ajouter un produit au stock ?",r:"Allez dans Stock, remplissez le nom, la quantité, le seuil d'alerte et le prix de vente (et le prix d'achat si vous le connaissez), puis appuyez sur Enregistrer.",mots:"stock produit ajouter article quantite"},
+    {q:"Pourquoi le produit « existe déjà » ?",r:"Chaque produit a un nom unique. Modifiez sa quantité avec + 1 ou − 1, ou changez le nom.",mots:"doublon existe deja double produit nom"},
+    {q:"Qu'est-ce que le seuil d'alerte ?",r:"C'est la quantité minimum qui déclenche l'alerte. Quand le stock atteint ce niveau, le produit apparaît dans Stock faible sur l'accueil.",mots:"alerte seuil rupture faible bientot"},
+    {q:"Comment ajuster rapidement la quantité ?",r:"Dans Stock, + 1 et − 1 changent la quantité. Chaque changement est noté dans l'historique.",mots:"plus moins ajuster quantite +1 -1 augmenter diminuer"},
+    {q:"Où voir l'historique du stock ?",r:"Dans Stock, appuyez sur le bouton d'historique : vous voyez chaque mouvement (vente, ajout, correction). Il reste sur ce téléphone.",mots:"historique mouvement stock trace"},
+    {q:"Pourquoi mon stock ne diminue pas ?",r:"Le stock diminue seulement si le nom du produit de la vente est exactement celui du stock. Vérifiez l'orthographe.",mots:"stock diminue pas bug orthographe nom"},
+
+    // Dépenses
+    {q:"Comment ajouter une dépense ?",r:"Allez dans Dépenses, indiquez le motif, le montant et la catégorie (loyer, transport…), puis appuyez sur Enregistrer la dépense.",mots:"depense depenses ajouter motif montant"},
+    {q:"Qu'est-ce que les catégories de dépenses ?",r:"Elles classent vos dépenses (loyer, transport, salaires…). Le Résumé du mois montre la part de chaque catégorie.",mots:"categorie categories loyer transport salaires"},
+    {q:"Comment supprimer une dépense ?",r:"Appuyez sur Supprimer, puis sur Confirmer.",mots:"supprimer depense effacer"},
+
+    // Crédits et clients
+    {q:"Comment enregistrer une vente à crédit ?",r:"Dans Ventes, choisissez le mode de paiement « À crédit », puis indiquez le nom du client (et son WhatsApp si vous voulez envoyer des rappels).",mots:"credit dette client a credit"},
+    {q:"Comment noter un remboursement ?",r:"Dans Crédits : appuyez sur Rembourser pour un paiement partiel, ou sur Tout payer pour solder la dette.",mots:"rembourser remboursement payer solder credit partiel"},
+    {q:"Comment relancer un client qui doit de l'argent ?",r:"Dans Crédits, appuyez sur Rappeler sur WhatsApp : un message poli indiquant le montant restant est préparé.",mots:"relance rappel whatsapp dette client"},
+    {q:"Comment voir ce que doit un client ?",r:"Dans Crédits, tapez le nom du client dans Fiche client, puis Ouvrir la fiche : vous voyez ses achats, ses versements et son reste à payer.",mots:"fiche client reste dette historique"},
+    {q:"Qu'est-ce qu'une dette « en retard » ?",r:"Une dette est en retard quand sa date limite est dépassée. Elle est signalée en rouge dans Crédits et compte dans Dettes en retard sur l'accueil.",mots:"retard en retard date limite"},
+    {q:"Comment ajouter un nouveau client ?",r:"Les clients sont créés automatiquement lors d'une vente à crédit. Si le client existe déjà, tapez son nom : il est reconnu.",mots:"client nouveau creer ajouter ajout"},
+    {q:"Comment est calculé le reste à payer ?",r:"Le reste = montant du crédit − tout ce qui a déjà été remboursé. Il se met à jour après chaque remboursement.",mots:"reste restant solde calcul"},
+
+    // Bénéfices, caisse, rapports
+    {q:"Où voir mes bénéfices du mois ?",r:"Sur l'accueil, appuyez sur Résumé du mois : ventes, dépenses, marge et bénéfice réel.",mots:"benefice resume mois marge gain"},
+    {q:"Quelle différence entre bénéfice estimé et bénéfice réel ?",r:"Bénéfice estimé = ventes − dépenses. Bénéfice réel = ventes − prix d'achat des produits − dépenses.",mots:"difference estime reel benefice calcul"},
+    {q:"Pourquoi mon bénéfice semble faux ?",r:"Renseignez le prix d'achat de vos produits dans Stock. Sans prix d'achat, la marge ne peut pas être exacte.",mots:"benefice faux marge prix achat chiffres erreur"},
+    {q:"Comment faire la clôture de caisse ?",r:"Sur l'accueil, appuyez sur Clôturer la caisse du jour, comptez les espèces, tapez le montant, puis Enregistrer la clôture. L'application calcule l'écart.",mots:"caisse cloture espèces ecart manque excedent"},
+    {q:"Comment exporter mes données en Excel ?",r:"Dans Mon profil, utilisez Exporter : vous obtenez un fichier CSV (ventes, dépenses, clients, crédits, produits), ouvrable dans Excel.",mots:"excel csv exporter export fichier tableur"},
+
+    // Sauvegarde
+    {q:"Comment sauvegarder mes données ?",r:"Dans Mon profil, appuyez sur Sauvegarder mes données : un fichier est téléchargé. Gardez-le en lieu sûr.",mots:"sauvegarde sauvegarder backup copie"},
+    {q:"Comment restaurer une sauvegarde ?",r:"Dans Mon profil, appuyez sur Restaurer une sauvegarde, puis choisissez votre fichier. Les données plus récentes sur le téléphone ne sont pas écrasées.",mots:"restaurer sauvegarde recuperer fichier"},
+
+    // Compte
+    {q:"Comment modifier mon nom, ma boutique ou ma ville ?",r:"Dans Mon profil, modifiez les informations souhaitées, puis enregistrez.",mots:"boutique nom profil modifier ville type commerce"},
+    {q:"Comment changer mon mot de passe ?",r:"Dans Mon profil, section mot de passe : tapez l'ancien mot de passe, puis le nouveau.",mots:"changer mot de passe modifier"},
+    {q:"J'ai oublié mon mot de passe.",r:"Sur l'écran de connexion, appuyez sur Mot de passe oublié et suivez les instructions reçues par email.",mots:"mot de passe oublie reinitialiser connexion"},
+    {q:"Comment me déconnecter ?",r:"Appuyez sur Se déconnecter, puis tapez votre mot de passe pour confirmer.",mots:"deconnexion deconnecter quitter sortir"},
+    {q:"Comment supprimer mon compte ?",r:"Dans Mon profil, appuyez sur Supprimer mon compte, puis tapez SUPPRIMER. Cette action est définitive.",mots:"supprimer compte effacer donnees"},
+    {q:"Plusieurs vendeurs peuvent-ils utiliser l'application ?",r:"Oui : chaque vendeur crée son propre compte et gère sa propre boutique.",mots:"vendeur employe plusieurs personnes equipe"},
+    {q:"Puis-je utiliser l'application sur plusieurs téléphones ?",r:"Oui, avec le même compte. Les données se synchronisent quand Internet est disponible.",mots:"plusieurs telephones appareil tablette ordinateur"},
+    {q:"L'application est-elle gratuite ?",r:"Oui, l'application est gratuite, sans abonnement.",mots:"gratuit payant abonnement prix cout"},
+    {q:"Comment installer l'application ?",r:"Ouvrez le site dans Chrome, appuyez sur les trois petits points (⋮), puis sur Installer l'application.",mots:"installer application telephone chrome ecran"},
+
+    // Hors connexion et synchronisation
+    {q:"L'application marche-t-elle sans Internet ?",r:"Oui, après la première connexion. Vos données sont enregistrées sur le téléphone et se synchronisent dès que la connexion revient.",mots:"internet hors connexion offline reseau marche"},
+    {q:"Que veut dire « Hors connexion » ou « Synchronisation reportée » ?",r:"Votre téléphone n'a pas Internet. Vos données restent sur le téléphone et seront envoyées dès que la connexion reviendra.",mots:"hors connexion synchronisation reportee message statut"},
+    {q:"Mes données ne se mettent pas à jour sur un autre téléphone.",r:"Vérifiez que les deux téléphones ont Internet. Attendez une minute, puis ouvrez l'application.",mots:"synchro synchronisation pas a jour autre telephone"},
+    {q:"Mes données sont-elles protégées ?",r:"Chaque compte ne voit que ses propres données. Faites une sauvegarde de temps en temps.",mots:"securite donnees protege confidentiel prive"},
+
+    // Dépannage
+    {q:"Un bouton ne marche pas.",r:"Fermez l'application et rouvrez-la. Sur le site, actualisez la page (Ctrl + F5). Si le problème continue, écrivez-nous.",mots:"bouton marche pas bug bloque erreur plante"},
+    {q:"Les chiffres semblent faux.",r:"Vérifiez les dates, le mode de paiement et les ventes supprimées. Renseignez le prix d'achat pour un bénéfice exact.",mots:"faux chiffres erreur total incorrect"},
+    {q:"Que veut dire « Montant invalide » ?",r:"Entrez un montant en chiffres, supérieur à 0.",mots:"montant invalide erreur chiffres zero"},
+
+    // Divers
+    {q:"Où est le groupe WhatsApp des vendeurs ?",r:"Sur l'accueil, appuyez sur Rejoindre le groupe WhatsApp des vendeurs.",mots:"groupe whatsapp vendeurs communaute"},
+    {q:"Comment vous contacter ?",r:"Écrivez-nous à blaogaleader@gmail.com. Nous répondons dès que possible.",mots:"contact support aide ecrire humain telephone"}
+  ];
+
+  const norm=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+
+  function ouvrir(){
+    const fond=document.createElement("div");
+    fond.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;padding:20px;z-index:20;overflow:auto";
+    fond.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:460px;width:100%;margin-top:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <h2 style="margin:0;color:#0f4d2e">Aide</h2>
+        <button type="button" id="aide-fermer" class="mini gr">Fermer</button>
+      </div>
+      <input id="aide-recherche" type="text" placeholder="Tapez votre question, ex. stock, crédit, bonjour" style="margin-top:12px">
+      <div id="aide-liste" style="margin-top:12px"></div>
+      <p class="petit">Vous n'avez pas trouvé votre réponse ? Écrivez-nous : <a href="mailto:blaogaleader@gmail.com">blaogaleader@gmail.com</a></p>
+    </div>`;
+    document.body.appendChild(fond);
+
+    const liste=fond.querySelector("#aide-liste");
+    const afficher=()=>{
+      const mots=norm(fond.querySelector("#aide-recherche").value.trim()).split(/\s+/).filter(Boolean);
+      const resultats=mots.length?QA.filter(x=>mots.every(m=>norm(x.q+" "+x.r+" "+x.mots).includes(m))):[];
+      if(!mots.length){
+        liste.innerHTML='<div class="sub">Tapez un mot : vente, stock, crédit, dépense, bénéfice, sauvegarde, compte…</div>';
+        return;
+      }
+      liste.innerHTML=resultats.length
+        ? resultats.map(x=>`<details class="it"><summary><b>${esc(x.q)}</b></summary><p style="margin:8px 0 0">${esc(x.r)}</p></details>`).join("")
+        : '<div class="vide">Je n\'ai pas trouvé. Essayez un autre mot : vente, stock, crédit, dépense, bénéfice, sauvegarde, compte.</div>';
+    };
+    fond.querySelector("#aide-recherche").addEventListener("input",afficher);
+    fond.querySelector("#aide-fermer").onclick=()=>fond.remove();
+    afficher();
+  }
+
+  // Remplace l'ancienne aide : ce gestionnaire passe avant le précédent
+  window.addEventListener("click",e=>{
+    if(e.target.closest("#b-aide")){
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      ouvrir();
+    }
+  },true);
+})();
+</script>
