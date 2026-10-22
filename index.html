@@ -2290,3 +2290,96 @@ rendre=async function(id){
   return r;
 };
 </script>
+<script>
+// ---------- Clôture de caisse du jour ----------
+(function(){
+  // L'historique est gardé sur ce téléphone, séparé par compte
+  const cle=()=>"cp_clotures_"+((lireSession()?.user?.id)||"local");
+  function lireClotures(){try{return JSON.parse(localStorage.getItem(cle())||"[]")}catch(e){return []}}
+  function sauverClotures(l){try{localStorage.setItem(cle(),JSON.stringify(l.slice(0,60)));return true}catch(e){return false}}
+
+  // Bouton ajouté sous « Aujourd'hui »
+  function ajouterBouton(){
+    const z=document.getElementById("jour-zone");
+    if(!z||document.getElementById("b-caisse"))return;
+    const b=document.createElement("button");
+    b.id="b-caisse";b.type="button";b.className="mini or";
+    b.textContent="Clôturer la caisse du jour";
+    z.appendChild(b);
+  }
+  new MutationObserver(ajouterBouton).observe(document.body,{childList:true,subtree:true});
+  ajouterBouton();
+
+  const somme=(l,f)=>l.reduce((t,x)=>t+(f(x)||0),0);
+
+  function ecartTexte(compte,theorique){
+    if(compte===""||compte==null)return "";
+    const ecart=compte-theorique;
+    if(ecart===0)return "Caisse juste ✔";
+    return ecart>0?"Excédent de "+fcfa(ecart):"Manque de "+fcfa(-ecart);
+  }
+
+  document.addEventListener("click",async e=>{
+    if(!e.target.closest("#b-caisse"))return;
+    if(!accesOk())return;
+
+    const debut=new Date();debut.setHours(0,0,0,0);
+    const [v,d]=await Promise.all(["ventes","depenses"].map(tout));
+    const auj=x=>x.supprime!==true&&new Date(x.cree_le)>=debut;
+    const vj=v.filter(auj),dj=d.filter(auj);
+    const par=m=>somme(vj.filter(x=>x.mode_paiement===m),x=>x.montant);
+    const especes=par("especes"),mtn=par("mtn"),orange=par("orange"),credit=par("credit");
+    const depenses=somme(dj,x=>x.montant);
+    const theorique=especes-depenses;
+    const dateJour=debut.toISOString().slice(0,10);
+
+    const historique=lireClotures();
+    const lignesHisto=historique.slice(0,10).map(c=>
+      `<div class="sub">${new Date(c.date).toLocaleDateString("fr-FR")} · compté ${fcfa(c.compte)} · ${esc(c.ecart_texte)}</div>`).join("")
+      || '<div class="sub">Aucune clôture pour le moment.</div>';
+
+    const fond=document.createElement("div");
+    fond.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;z-index:20";
+    fond.innerHTML=`<div style="background:#fff;border-radius:16px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow:auto">
+      <h2 style="margin:0 0 8px;color:#0f4d2e">Clôture du ${debut.toLocaleDateString("fr-FR")}</h2>
+      <p>Ventes en espèces : <b>${fcfa(especes)}</b><br>Dépenses du jour : <b>${fcfa(depenses)}</b><br>Caisse théorique : <b>${fcfa(theorique)}</b></p>
+      <p class="petit">MTN : ${fcfa(mtn)} · Orange : ${fcfa(orange)} · À crédit : ${fcfa(credit)}</p>
+      <label for="cl-compte">Espèces réellement comptées (FCFA)</label>
+      <input id="cl-compte" type="number" inputmode="numeric" min="0">
+      <p id="cl-ecart" class="petit" style="font-weight:bold"></p>
+      <button class="btn vert" type="button" id="cl-enregistrer">Enregistrer la clôture</button>
+      <button class="btn blanc" type="button" id="cl-fermer" style="border:2px solid #e6ebe8">Fermer</button>
+      <h3>Dernières clôtures (sur ce téléphone)</h3>
+      ${lignesHisto}
+    </div>`;
+    document.body.appendChild(fond);
+
+    const champ=fond.querySelector("#cl-compte");
+    const affiche=()=>{
+      const c=champ.value===""?null:entier(champ.value);
+      fond.querySelector("#cl-ecart").textContent=c==null?"":ecartTexte(c,theorique);
+    };
+    champ.addEventListener("input",affiche);
+    fond.querySelector("#cl-fermer").onclick=()=>fond.remove();
+
+    fond.querySelector("#cl-enregistrer").onclick=()=>{
+      if(champ.value==="")return toast("Entrez le montant compté.");
+      const compte=entier(champ.value);
+      if(isNaN(compte)||compte<0)return toast("Montant invalide.");
+      const entree={
+        date:dateJour,
+        especes,mtn,orange,credit,depenses,theorique,
+        compte,
+        ecart:compte-theorique,
+        ecart_texte:ecartTexte(compte,theorique),
+        enregistre_le:maintenant()
+      };
+      // Une seule clôture par jour : la nouvelle remplace l'ancienne
+      const nouvelle=[entree,...historique.filter(c=>c.date!==dateJour)];
+      if(!sauverClotures(nouvelle))return toast("Enregistrement impossible sur ce téléphone.");
+      fond.remove();
+      toast("Caisse clôturée : "+entree.ecart_texte);
+    };
+  });
+})();
+</script>
