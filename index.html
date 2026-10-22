@@ -1925,3 +1925,21 @@ rResume=async function(){
     <p class="petit">Bénéfice estimé = ventes du mois − dépenses du mois. Les crédits affichent ce qui reste à payer, après les remboursements.</p>`;
 };
 </script>
+<script>
+// ---------- Bouton APK : retiré dans l'application Android, même si le téléphone est hors-ligne ----------
+(function(){
+  const estAppli=()=>
+    !!(window.Capacitor && (typeof window.Capacitor.isNativePlatform!=="function" || window.Capacitor.isNativePlatform()))
+    || document.referrer.startsWith("android-app://")
+    || matchMedia("(display-mode: standalone)").matches
+    || navigator.standalone===true;
+
+  const retirer=()=>{
+    if(!estAppli())return;
+    ["btn-apk","btn-installer"].forEach(id=>{const b=document.getElementById(id);if(b)b.remove()});
+  };
+  retirer();
+  // Le bouton peut être recréé : on surveille la page
+  new MutationObserver(retirer).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
