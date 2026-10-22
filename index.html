@@ -2700,3 +2700,75 @@ rResume=async function(){
   appliquer();
 })();
 </script>
+<script>
+// ---------- Accueil : titres des actions, doublons retirés, bloc « Ce mois-ci » ----------
+(function(){
+  // Titres au-dessus des boutons d'action et des autres pages
+  function titres(){
+    const t=document.getElementById("tableau");
+    if(!t)return;
+    const gros=t.querySelector(":scope > .gros");
+    if(gros&&!gros.querySelector(".titre-actions")){
+      const h=document.createElement("h3");
+      h.className="titre-actions";h.textContent="Actions rapides";h.style.margin="0 0 8px";
+      gros.insertBefore(h,gros.firstChild);
+    }
+    const autres=[...t.querySelectorAll(":scope > div")].find(d=>d.querySelector('button[data-va="activite"]'));
+    if(autres&&!autres.querySelector(".titre-autres")){
+      const h=document.createElement("h3");
+      h.className="titre-autres";h.textContent="Autres pages";h.style.margin="0 0 8px";
+      autres.insertBefore(h,autres.firstChild);
+    }
+    // Les cartes « Ventes du jour » et « Dépenses du jour » sont déjà dans le bloc Aujourd'hui
+    ["t-ventes","t-depenses"].forEach(id=>{
+      const c=document.getElementById(id)?.closest(".carte");
+      if(c)c.style.display="none";
+    });
+  }
+
+  // Emplacement du bloc « Ce mois-ci », juste sous « Aujourd'hui »
+  function creerMois(){
+    const jour=document.getElementById("jour-zone");
+    if(!jour||document.getElementById("mois-zone"))return;
+    const z=document.createElement("div");
+    z.id="mois-zone";
+    jour.insertAdjacentElement("afterend",z);
+  }
+
+  // Chiffres du mois
+  async function majMois(){
+    const z=document.getElementById("mois-zone");
+    if(!z)return;
+    const D=debuts();
+    const [v,d,c]=await Promise.all(["ventes","depenses","credits"].map(tout));
+    const actif=x=>x.supprime!==true;
+    const vm=v.filter(actif).filter(x=>new Date(x.cree_le)>=D.m);
+    const dm=d.filter(actif).filter(x=>new Date(x.cree_le)>=D.m);
+    const totV=vm.reduce((t,x)=>t+x.montant,0);
+    const totD=dm.reduce((t,x)=>t+x.montant,0);
+    const reste=c.filter(x=>x.statut!=="paye"&&actif(x))
+      .reduce((t,x)=>t+Math.max(0,x.montant-(x.rembourse||0)),0);
+    const mois=new Date().toLocaleDateString("fr-FR",{month:"long"});
+    z.innerHTML=`<h3 style="margin:16px 0 8px">Ce mois-ci (${esc(mois)})</h3>
+      <div class="grille">
+        <div class="carte large"><div class="lib">Ventes du mois</div><div class="val">${fcfa(totV)}</div><div class="sub">${vm.length} vente(s)</div></div>
+        <div class="carte"><div class="lib">Dépenses du mois</div><div class="val">${fcfa(totD)}</div></div>
+        <div class="carte"><div class="lib">Crédits à récupérer</div><div class="val">${fcfa(reste)}</div></div>
+      </div>`;
+  }
+
+  // Mise à jour à chaque ouverture de l'accueil
+  const calculerAvantMois=calculerTableau;
+  calculerTableau=async function(){
+    await calculerAvantMois();
+    titres();
+    creerMois();
+    await majMois();
+  };
+
+  // Les titres et le bloc du mois sont remis en place si l'écran change
+  new MutationObserver(()=>{titres();creerMois();}).observe(document.body,{childList:true,subtree:true});
+  titres();
+  creerMois();
+})();
+</script>
