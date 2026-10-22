@@ -1264,3 +1264,19 @@ lienOublie.addEventListener("click",async()=>{
   }
 })();
 </script>
+<script>
+// Application gratuite : plus d'essai, plus d'abonnement
+accesOk=function(){return true};
+
+// Masquer les éléments liés à l'abonnement
+(function(){
+  const cacher=(el)=>{if(el)el.style.display="none"};
+  cacher(document.querySelector('[data-va="abonnement"]'));
+  cacher(document.getElementById("rappel"));
+  const jours=document.getElementById("t-jours");
+  if(jours)cacher(jours.parentElement);
+  document.querySelectorAll("p").forEach(p=>{
+    if(p.textContent.includes("30 jours gratuits"))p.textContent="Application gratuite, sans limite.";
+  });
+})();
+</script>
