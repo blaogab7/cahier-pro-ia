@@ -3037,3 +3037,73 @@ rResume=async function(){
   },true);
 })();
 </script>
+<script>
+// ---------- Administration : liste des commerçants, blocage et déblocage ----------
+(function(){
+  // La section « Paiements » n'existe plus
+  const retirerPaiements=()=>{
+    const m=document.getElementById("admin");
+    if(!m)return;
+    m.querySelectorAll("h3").forEach(h=>{if(h.textContent.includes("Paiements"))h.remove();});
+    const p=document.getElementById("ad-paiements");
+    if(p)p.remove();
+  };
+
+  // Liste des comptes : nom de la boutique, ville, statut
+  async function chargerListe(){
+    const zone=document.getElementById("ad-users");
+    if(!zone)return;
+    zone.innerHTML='<div class="sub">Chargement…</div>';
+    try{
+      const jt=await jeton();
+      const [profils,boutiques]=await Promise.all([
+        sb("/rest/v1/profils?select=id,nom,bloque",{jeton:jt}),
+        sb("/rest/v1/boutiques?select=user_id,nom,ville,type_commerce",{jeton:jt})
+      ]);
+      const parId=new Map(boutiques.map(b=>[b.user_id,b]));
+      if(!profils.length){zone.innerHTML='<div class="vide">Aucun commerçant pour le moment.</div>';return;}
+      zone.innerHTML=profils.map(p=>{
+        const b=parId.get(p.id)||{};
+        return `<div class="it">
+          <b>${esc(b.nom||"Boutique sans nom")}</b> · ${esc(p.nom||"")}
+          <div class="sub">${esc(b.type_commerce||"")}${b.ville?" · "+esc(b.ville):""}</div>
+          <div class="sub">${p.bloque?'<span class="rouge">Bloqué</span>':"Actif"}</div>
+          ${p.bloque
+            ? `<button class="mini gr" type="button" data-admin="debloquer" data-id="${p.id}">Débloquer</button>`
+            : `<button class="mini" type="button" data-admin="bloquer" data-id="${p.id}" style="background:#dc2626">Bloquer</button>`}
+        </div>`;
+      }).join("");
+    }catch(err){
+      zone.innerHTML='<div class="vide">Liste impossible à charger. Réessayez.</div>';
+    }
+  }
+
+  // Bloquer ou débloquer un compte
+  document.addEventListener("click",async e=>{
+    const b=e.target.closest("[data-admin]");
+    if(!b)return;
+    const bloquer=b.dataset.admin==="bloquer";
+    if(!confirm(bloquer
+      ?"Bloquer ce compte ? Le commerçant ne pourra plus enregistrer de données."
+      :"Débloquer ce compte ?"))return;
+    try{
+      await sb("/rest/v1/rpc/admin_bloquer_compte",{methode:"POST",corps:{cible:b.dataset.id,bloquer},jeton:await jeton()});
+      toast(bloquer?"Compte bloqué":"Compte débloqué");
+      await chargerListe();
+    }catch(err){
+      toast("Action impossible. Vérifiez votre accès administrateur.");
+    }
+  });
+
+  // Chargement de la page Administration
+  const rendreAvantAdmin=rendre;
+  rendre=async function(id){
+    if(id==="admin"){
+      retirerPaiements();
+      return chargerListe();
+    }
+    return rendreAvantAdmin(id);
+  };
+  retirerPaiements();
+})();
+</script>
