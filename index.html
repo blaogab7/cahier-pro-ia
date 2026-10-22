@@ -2570,3 +2570,58 @@ rResume=async function(){
     <p class="petit">Bénéfice estimé = ventes du mois − dépenses du mois. Les ventes et dépenses supprimées ne sont pas comptées.</p>`;
 };
 </script>
+<script>
+// Accueil : un seul bouton. Téléchargement APK en bas de page, seulement sur le site et sans compte connecté
+(function(){
+  const libelle="S'inscrire et se connecter";
+  const estAppli=()=>!!(window.Capacitor&&(typeof window.Capacitor.isNativePlatform!=="function"||window.Capacitor.isNativePlatform()))
+    ||document.referrer.startsWith("android-app://")
+    ||matchMedia("(display-mode: standalone)").matches
+    || navigator.standalone===true;
+
+  // Lien « Se connecter » sur l'écran d'inscription, pour les utilisateurs existants
+  function lienConnexion(){
+    const i=document.getElementById("inscription");
+    if(!i||document.getElementById("lien-connexion"))return;
+    const p=document.createElement("p");
+    p.id="lien-connexion";
+    p.style.textAlign="center";
+    p.innerHTML='Vous avez déjà un compte ? <a href="#" data-va="connexion" style="color:#0f4d2e;font-weight:bold">Se connecter</a>';
+    i.appendChild(p);
+  }
+
+  function mettreAJour(){
+    // Accueil : un seul bouton
+    const accueil=document.getElementById("accueil");
+    if(accueil){
+      const ins=accueil.querySelector('button[data-va="inscription"]');
+      if(ins&&ins.textContent!==libelle)ins.textContent=libelle;
+      const con=accueil.querySelector('button[data-va="connexion"]');
+      if(con)con.style.display="none";
+    }
+
+    // Plus de bouton APK sur l'accueil
+    const apk=document.getElementById("btn-apk");
+    if(apk)apk.style.display="none";
+
+    // Lien APK en bas de page : seulement sur le site, sans compte connecté
+    const afficherApk=!estAppli()&&!lireSession();
+    document.querySelectorAll(".pied").forEach(pied=>{
+      const lien=pied.querySelector("#lien-apk");
+      if(afficherApk&&!lien){
+        const a=document.createElement("a");
+        a.id="lien-apk";
+        a.href="cahier-pro.apk";
+        a.download="cahier-pro.apk";
+        a.textContent=" · Télécharger l'application Android";
+        pied.appendChild(a);
+      }
+      if(!afficherApk&&lien)lien.remove();
+    });
+  }
+
+  lienConnexion();
+  mettreAJour();
+  new MutationObserver(()=>{lienConnexion();mettreAJour();}).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
