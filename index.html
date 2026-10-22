@@ -2217,3 +2217,76 @@ rResume=async function(){
   };
 })();
 </script>
+<script>
+// ---------- Prix d'achat et marge ----------
+
+// Ces champs sont envoyés et reçus avec les produits et les ventes
+COLS.produits.push("prix_achat");
+COLS.ventes.push("cout_unitaire");
+
+// Champ « Prix d'achat » dans le formulaire d'ajout au stock
+(function(){
+  const prix=document.getElementById("s-prix");
+  if(!prix||document.getElementById("s-achat"))return;
+  const d=document.createElement("div");
+  d.innerHTML='<label for="s-achat">Prix d\'achat (FCFA, facultatif)</label><input id="s-achat" type="number" inputmode="numeric" min="0">';
+  prix.insertAdjacentElement("afterend",d);
+})();
+
+// Mémorise le prix d'achat saisi au moment de l'envoi du formulaire
+let achatSaisi=null;
+document.getElementById("f-stock").addEventListener("submit",()=>{
+  const v=document.getElementById("s-achat")?.value||"";
+  achatSaisi=v===""?0:Math.max(0,entier(v)||0);
+},true);
+
+// Le prix d'achat est aussi modifiable dans « Modifier »
+CHAMPS_EDIT.produits.splice(3,0,{k:"prix_achat",l:"Prix d'achat (FCFA)",t:"nombre"});
+
+// Chaque vente garde le prix d'achat du produit au moment de la vente
+const ecrireAvantAchat=ecrire;
+ecrire=async function(store,o){
+  if(store==="produits"&&achatSaisi!==null){o.prix_achat=achatSaisi;achatSaisi=null;}
+  if(store==="ventes"){
+    const nom=(o.produit||"").trim().toLowerCase();
+    const p=(await tout("produits")).find(x=>x.nom.trim().toLowerCase()===nom);
+    o.cout_unitaire=p&&p.prix_achat?p.prix_achat:0;
+  }
+  return ecrireAvantAchat(store,o);
+};
+
+// Marge et bénéfice réel dans le Résumé du mois
+async function ajouterMarge(){
+  const zone=document.getElementById("resume-contenu");
+  if(!zone)return;
+  const D=debuts();
+  const [v,d]=await Promise.all(["ventes","depenses"].map(tout));
+  const dansMois=x=>new Date(x.cree_le)>=D.m&&x.supprime!==true;
+  const vm=v.filter(dansMois),dm=d.filter(dansMois);
+  const totVentes=vm.reduce((t,x)=>t+x.montant,0);
+  const coutAchat=vm.reduce((t,x)=>t+(x.quantite||1)*(x.cout_unitaire||0),0);
+  const totDepenses=dm.reduce((t,x)=>t+x.montant,0);
+  const sansPrix=vm.filter(x=>!x.cout_unitaire).length;
+  const margeBrute=totVentes-coutAchat;
+
+  const ancien=document.getElementById("marge-zone");
+  if(ancien)ancien.remove();
+  const z=document.createElement("div");
+  z.id="marge-zone";
+  z.innerHTML=`<h3>Marge et bénéfice réel</h3>
+    <div class="grille">
+      <div class="carte"><div class="lib">Coût d'achat des produits vendus</div><div class="val">${fcfa(coutAchat)}</div></div>
+      <div class="carte"><div class="lib">Marge brute</div><div class="val">${fcfa(margeBrute)}</div><div class="sub">ventes − coût d'achat</div></div>
+      <div class="carte large"><div class="lib">Bénéfice réel du mois</div><div class="val">${fcfa(margeBrute-totDepenses)}</div><div class="sub">marge brute − dépenses</div></div>
+    </div>
+    ${sansPrix?`<p class="petit">${sansPrix} vente(s) sans prix d'achat renseigné. Renseignez le prix d'achat de vos produits pour un calcul exact.</p>`:""}`;
+  zone.appendChild(z);
+}
+
+const rendreAvantMarge=rendre;
+rendre=async function(id){
+  const r=await rendreAvantMarge(id);
+  if(id==="resume")await ajouterMarge();
+  return r;
+};
+</script>
